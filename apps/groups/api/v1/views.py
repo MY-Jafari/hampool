@@ -4,7 +4,7 @@ from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 
-from apps.groups.models import Group, Membership, Expense, ExpenseSplit, ActivityLog
+from apps.groups.models import Group, Membership, Expense, ExpenseSplit
 from apps.groups.permissions import IsGroupMember, IsGroupAdmin, IsOwnerOrAdmin
 from .serializers import (
     GroupCreateSerializer,
@@ -17,6 +17,17 @@ from .serializers import (
     ActivityLogSerializer,
     InviteCodeSerializer,
     JoinByInviteSerializer,
+)
+
+# ── Event Bus imports ────────────────────────────────────────────
+from core.events import EventBus
+from apps.groups.events import (
+    GroupCreated as GroupCreatedEvent,
+    MemberJoined as MemberJoinedEvent,
+    MemberLeft as MemberLeftEvent,
+    ExpenseCreated as ExpenseCreatedEvent,
+    ExpenseConfirmed as ExpenseConfirmedEvent,
+    ExpenseDeleted as ExpenseDeletedEvent,
 )
 
 User = get_user_model()
@@ -42,6 +53,8 @@ class GroupListCreateView(generics.ListCreateAPIView):
         group = serializer.save(created_by=self.request.user, owner=self.request.user)
         Membership.objects.create(user=self.request.user, group=group, role="admin")
         group.generate_invite_code()
+        # Publish event
+        EventBus.publish(GroupCreatedEvent(group=group))
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -99,6 +112,8 @@ class GroupMembershipAddView(generics.CreateAPIView):
                 {"error": "User is already a member."}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Publish event
+        EventBus.publish(MemberJoinedEvent(membership=membership))
         output_serializer = MembershipResponseSerializer(membership)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -141,9 +156,9 @@ class GroupMembershipRemoveView(generics.DestroyAPIView):
                 if earliest_admin:
                     group.owner = earliest_admin.user
                     group.save(update_fields=["owner"])
-                    # Remove the old owner's membership
                     membership = get_object_or_404(Membership, group=group, user=request.user)
                     membership.delete()
+                    EventBus.publish(MemberLeftEvent(group=group, user=request.user))
                     return Response(
                         {"detail": "Ownership transferred. You have left the group."},
                         status=status.HTTP_200_OK,
@@ -167,6 +182,8 @@ class GroupMembershipRemoveView(generics.DestroyAPIView):
 
         membership = get_object_or_404(Membership, group=group, user=user_to_remove)
         membership.delete()
+        # Publish event
+        EventBus.publish(MemberLeftEvent(group=group, user=user_to_remove))
 
         # If the removed user was admin and there are no admins left,
         # promote the earliest member to admin
@@ -192,7 +209,7 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
     permission_classes = [IsGroupAdmin]
     serializer_class = MembershipSerializer
     queryset = Membership.objects.all()
-    http_method_names = ["patch"]  # Block PUT requests
+    http_method_names = ["patch"]
 
     def get_object(self):
         group = get_object_or_404(Group, pk=self.kwargs["pk"])
@@ -203,7 +220,6 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
         membership = self.get_object()
         group = membership.group
 
-        # Owner's role is immutable
         if membership.user == group.owner:
             return Response(
                 {"error": "Cannot change the role of the group owner."},
@@ -217,7 +233,6 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
         membership.role = new_role
         membership.save()
 
-        # If the last admin was demoted, promote the earliest member
         if not group.memberships.filter(role="admin").exists():
             first_member = group.memberships.order_by("joined_at").first()
             if first_member:
@@ -239,12 +254,11 @@ class TransferOwnershipView(generics.GenericAPIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = serializers.Serializer  # Minimal serializer
+    serializer_class = serializers.Serializer
 
     def post(self, request, *args, **kwargs):
         group = get_object_or_404(Group, pk=self.kwargs["pk"])
 
-        # Only the current owner can transfer
         if request.user != group.owner:
             return Response(
                 {"error": "Only the group owner can transfer ownership."},
@@ -255,12 +269,10 @@ class TransferOwnershipView(generics.GenericAPIView):
         new_owner = get_object_or_404(User, pk=new_owner_id)
         membership = get_object_or_404(Membership, group=group, user=new_owner)
 
-        # Ensure the new owner is an admin
         if membership.role != "admin":
             membership.role = "admin"
             membership.save(update_fields=["role"])
 
-        # Transfer ownership
         group.owner = new_owner
         group.save(update_fields=["owner"])
 
@@ -311,6 +323,8 @@ class GroupJoinByInviteView(generics.GenericAPIView):
         )
         if not created:
             return Response({"detail": "You are already a member."}, status=status.HTTP_200_OK)
+        # Publish event
+        EventBus.publish(MemberJoinedEvent(membership=membership))
         return Response(
             {"detail": "Successfully joined the group."}, status=status.HTTP_201_CREATED
         )
@@ -335,7 +349,9 @@ class ExpenseListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        serializer.save(group=group, paid_by=self.request.user)
+        expense = serializer.save(group=group, paid_by=self.request.user)
+        # Publish event
+        EventBus.publish(ExpenseCreatedEvent(expense=expense))
 
 
 class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -355,13 +371,18 @@ class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
             and serializer.validated_data["is_confirmed"]
         ):
             if not instance.is_confirmed:
-                ActivityLog.objects.create(
-                    group=instance.group,
-                    user=self.request.user,
-                    action="expense_confirmed",
-                    description=f'Expense "{instance.description}" confirmed',
+                # Save first, then publish event
+                serializer.save()
+                EventBus.publish(
+                    ExpenseConfirmedEvent(expense=instance, confirmed_by=self.request.user)
                 )
+                return
         serializer.save()
+
+    def perform_destroy(self, instance):
+        # Publish event before deletion so we still have the data
+        EventBus.publish(ExpenseDeletedEvent(expense=instance, deleted_by=self.request.user))
+        instance.delete()
 
 
 # ── Balances ────────────────────────────────────────────────────
