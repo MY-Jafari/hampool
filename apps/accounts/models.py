@@ -157,10 +157,11 @@ class OTP(models.Model):
         if self.is_expired():
             return False
         totp = pyotp.TOTP(self.secret, interval=60)
-        return totp.verify(code, valid_window=1)  # allow 1 step drift
+        # Increase valid_window to 2 to be more tolerant of clock skew
+        return totp.verify(code, valid_window=2)
 
     def save(self, *args, **kwargs):
-        """Set expiration to 1 minute from creation if not already set."""
+        """Set expiration to 2 minutes from creation (matches valid_window)."""
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(minutes=1)
+            self.expires_at = timezone.now() + timedelta(minutes=2)
         super().save(*args, **kwargs)

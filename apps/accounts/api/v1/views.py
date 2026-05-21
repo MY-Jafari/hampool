@@ -6,8 +6,12 @@ from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import AuthenticationFailed, InvalidToken
+from rest_framework_simplejwt.settings import api_settings
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
+from rest_framework.permissions import BasePermission
 
 from .serializers import (
     RegisterSerializer,
@@ -19,17 +23,55 @@ logger = logging.getLogger("accounts")
 User = get_user_model()
 
 
-# helper class for swagger
-class LogoutSerializer(serializers.Serializer):
-    """Serializer for logout request containing the refresh token."""
+# ── Custom Authentication: Allows inactive users ───────────────
 
-    refresh = serializers.CharField(required=True)
+
+class AllowInactiveUserJWTAuthentication(JWTAuthentication):
+    """
+    Custom JWT authentication that allows inactive users to authenticate.
+    Used for endpoints like OTP verification where the user is not yet active.
+    """
+
+    def get_user(self, validated_token):
+        """
+        Return the user associated with the token, even if inactive.
+        """
+        try:
+            user_id = validated_token[api_settings.USER_ID_CLAIM]
+        except KeyError:
+            raise InvalidToken(_("Token contained no recognizable user identification"))
+
+        try:
+            user = self.user_model.objects.get(**{api_settings.USER_ID_FIELD: user_id})
+        except self.user_model.DoesNotExist:
+            raise AuthenticationFailed(_("User not found"), code="user_not_found")
+
+        # Do NOT check user.is_active here; allow inactive users
+        return user
+
+
+# ── Custom Permission for temporary OTP tokens ─────────────────
+
+
+class IsVerifyOTPToken(BasePermission):
+    """
+    Allow access only if the request's JWT token carries
+    the custom claim 'purpose' with value 'verify_otp'.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return request.auth and request.auth.get("purpose") == "verify_otp"
+
+
+# ── Registration View ──────────────────────────────────────────
 
 
 @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True), name="post")
 class RegisterView(generics.CreateAPIView):
     """
-    Register a new user. Sends an OTP (logged to console) for verification.
+    Register a new user. Returns a temporary access token for OTP verification.
     Rate limited to 5 requests per minute per IP.
     """
 
@@ -46,31 +88,47 @@ class RegisterView(generics.CreateAPIView):
                 "detail": _(
                     "Registration successful. Please verify your phone number with the OTP."
                 ),
-                "phone_number": user.phone_number,
+                "temp_token": user._temp_token,
             },
             status=status.HTTP_201_CREATED,
         )
 
 
+# ── OTP Verification View ──────────────────────────────────────
+
+
 @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True), name="post")
 class VerifyOTPView(generics.GenericAPIView):
     """
-    Verify the OTP sent to the user's phone number.
-    Activates the user account.
+    Verify the OTP code using the temporary JWT token from registration.
+    On success, activates the user and returns standard access/refresh tokens.
+    The user is automatically logged in.
     """
 
-    permission_classes = [permissions.AllowAny]
+    authentication_classes = [AllowInactiveUserJWTAuthentication]  # اجازه به کاربر غیرفعال
+    permission_classes = [IsVerifyOTPToken]
     serializer_class = VerifyOTPSerializer
 
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        logger.info(f'User {serializer.validated_data["phone_number"]} verified and activated.')
+        serializer.save()  # User is now active
+
+        logger.info(f"User {request.user.phone_number} verified and activated.")
+
+        # Issue standard JWT tokens so the user is immediately logged in
+        refresh = RefreshToken.for_user(request.user)
         return Response(
-            {"detail": _("Phone number verified successfully. You can now login.")},
+            {
+                "detail": _("Phone number verified successfully. You are now logged in."),
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            },
             status=status.HTTP_200_OK,
         )
+
+
+# ── Login View ─────────────────────────────────────────────────
 
 
 class LoginView(TokenObtainPairView):
@@ -79,7 +137,16 @@ class LoginView(TokenObtainPairView):
     Inherits from simplejwt's TokenObtainPairView.
     """
 
-    pass  # Custom logic (e.g., logging failed attempts) can be added via signal
+    pass
+
+
+# ── Logout View ────────────────────────────────────────────────
+
+
+class LogoutSerializer(serializers.Serializer):
+    """Serializer for logout request containing the refresh token."""
+
+    refresh = serializers.CharField(required=True)
 
 
 class LogoutView(generics.GenericAPIView):
@@ -105,6 +172,9 @@ class LogoutView(generics.GenericAPIView):
             )
         except Exception:
             return Response({"error": _("Invalid token.")}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ── Profile View ───────────────────────────────────────────────
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):

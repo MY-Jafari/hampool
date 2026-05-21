@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     # Local
     "apps.accounts",
+    "apps.groups",
 ]
 
 MIDDLEWARE = [
@@ -74,6 +75,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": {
+            "init_command": "PRAGMA foreign_keys = ON;",
+        },
     }
 }
 
@@ -135,9 +139,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.AllowAny",  # change later for protected endpoints
-    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -157,7 +159,6 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-
 # drf-yasg
 SWAGGER_SETTINGS = {
     "SECURITY_DEFINITIONS": {

@@ -1,9 +1,5 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
-
-from django.conf import settings
-from django.conf.urls.static import static
-
 from .api.v1.views import (
     RegisterView,
     VerifyOTPView,
@@ -21,5 +17,3 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("profile/", ProfileView.as_view(), name="profile"),
 ]
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

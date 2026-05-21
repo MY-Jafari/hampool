@@ -1,11 +1,13 @@
 import re
 import logging
+from datetime import timedelta
 
 import pyotp
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.accounts.models import OTP
 
@@ -16,8 +18,10 @@ logger = logging.getLogger("accounts")
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for initial user registration.
-    Accepts only phone_number, password, and password confirmation.
-    Creates an inactive user and generates a TOTP secret for OTP verification.
+
+    Accepts phone_number, password, and password_confirmation.
+    Creates an inactive user, generates a TOTP secret for OTP,
+    and attaches a temporary JWT token (5 min) for the verification step.
     """
 
     password = serializers.CharField(
@@ -50,15 +54,17 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: dict) -> User:
         """
-        Create an inactive user, generate a TOTP secret,
-        and log the current OTP code to the console.
+        Create an inactive user, generate a TOTP secret, log the OTP code,
+        and build a temporary JWT token (5 min) for OTP verification.
+
+        The token carries a custom claim 'purpose' = 'verify_otp'.
         """
         validated_data.pop("password_confirm")
         user = User.objects.create_user(**validated_data)
         user.is_active = False
         user.save()
 
-        # Generate TOTP secret and log the current code
+        # Generate TOTP secret and log the current OTP code
         secret = pyotp.random_base32()
         totp = pyotp.TOTP(secret, interval=60)
         code = totp.now()
@@ -66,23 +72,32 @@ class RegisterSerializer(serializers.ModelSerializer):
             user=user, defaults={"secret": secret, "expires_at": None}  # auto-set in save()
         )
         logger.info(f"OTP for {user.phone_number}: {code}")
+
+        # Build a temporary access token (5 min) with a custom claim
+        token = AccessToken.for_user(user)
+        token["purpose"] = "verify_otp"
+        token.set_exp(lifetime=timedelta(minutes=5))
+
+        # Attach the token string to the user object so the view can return it
+        user._temp_token = str(token)
         return user
 
 
 class VerifyOTPSerializer(serializers.Serializer):
     """
-    Serializer for OTP verification. Accepts phone_number and the 6-digit code.
-    Activates the user if the TOTP code is valid.
+    Serializer for OTP verification.
+
+    The user is extracted from the temporary JWT token in the request.
+    Only the OTP code is required in the request body.
     """
 
-    phone_number = serializers.CharField(max_length=11)
     code = serializers.CharField(max_length=6)
 
     def validate(self, attrs: dict) -> dict:
-        try:
-            user = User.objects.get(phone_number=attrs["phone_number"])
-        except User.DoesNotExist:
-            raise serializers.ValidationError(_("Invalid phone number."))
+        # User is already authenticated by the temporary token
+        user = self.context["request"].user
+        if not user.is_authenticated:
+            raise serializers.ValidationError(_("Authentication required."))
 
         try:
             otp = user.otp
@@ -106,7 +121,6 @@ class VerifyOTPSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for the User model. Used for profile retrieval and update.
-    Users can later add email, full_name, language, and avatar via this serializer.
     """
 
     class Meta:
