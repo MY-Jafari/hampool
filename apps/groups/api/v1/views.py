@@ -1,11 +1,11 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Sum
 from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 
-from apps.groups.models import Group, Membership, Expense, ExpenseSplit
+from apps.groups.models import Group, Membership
 from apps.groups.permissions import IsGroupMember, IsGroupAdmin, IsOwnerOrAdmin
+from apps.groups.services import GroupService, ExpenseService, BalanceService
 from .serializers import (
     GroupCreateSerializer,
     GroupSerializer,
@@ -19,18 +19,12 @@ from .serializers import (
     JoinByInviteSerializer,
 )
 
-# ── Event Bus imports ────────────────────────────────────────────
-from core.events import EventBus
-from apps.groups.events import (
-    GroupCreated as GroupCreatedEvent,
-    MemberJoined as MemberJoinedEvent,
-    MemberLeft as MemberLeftEvent,
-    ExpenseCreated as ExpenseCreatedEvent,
-    ExpenseConfirmed as ExpenseConfirmedEvent,
-    ExpenseDeleted as ExpenseDeletedEvent,
-)
-
 User = get_user_model()
+
+# ── Service Instances ────────────────────────────────────────────
+group_service = GroupService()
+expense_service = ExpenseService()
+balance_service = BalanceService()
 
 
 # ── Group List / Create ─────────────────────────────────────────
@@ -50,18 +44,21 @@ class GroupListCreateView(generics.ListCreateAPIView):
         return Group.objects.filter(memberships__user=self.request.user)
 
     def perform_create(self, serializer):
-        group = serializer.save(created_by=self.request.user, owner=self.request.user)
-        Membership.objects.create(user=self.request.user, group=group, role="admin")
-        group.generate_invite_code()
-        # Publish event
-        EventBus.publish(GroupCreatedEvent(group=group))
+        group = group_service.create_group(
+            name=serializer.validated_data["name"],
+            description=serializer.validated_data.get("description", ""),
+            budget_limit=serializer.validated_data.get("budget_limit", 0),
+            created_by=self.request.user,
+        )
+        # Store the group instance for the response
+        self._created_group = group
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        out_serializer = GroupSerializer(serializer.instance)
-        headers = self.get_success_headers(serializer.data)
+        out_serializer = GroupSerializer(self._created_group)
+        headers = {}
         return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
@@ -100,20 +97,14 @@ class GroupMembershipAddView(generics.CreateAPIView):
         input_serializer = self.get_serializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
 
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        phone = input_serializer.validated_data["phone_number"]
-        user = get_object_or_404(User, phone_number=phone)
-
-        membership, created = Membership.objects.get_or_create(
-            user=user, group=group, defaults={"role": "member"}
-        )
-        if not created:
-            return Response(
-                {"error": "User is already a member."}, status=status.HTTP_400_BAD_REQUEST
+        try:
+            membership = group_service.add_member(
+                group_id=self.kwargs["pk"],
+                phone_number=input_serializer.validated_data["phone_number"],
             )
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Publish event
-        EventBus.publish(MemberJoinedEvent(membership=membership))
         output_serializer = MembershipResponseSerializer(membership)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -125,74 +116,27 @@ class GroupMembershipRemoveView(generics.DestroyAPIView):
     """
     Remove a member from a group or leave the group.
 
-    Rules:
-        - Owner cannot be removed (must transfer ownership or delete group).
-        - Owner can leave only if there is another admin; ownership transfers
-          to the earliest admin.
-        - Regular members can leave (self-removal).
-        - Admins (non-owner) can remove other non-owner members.
+    Rules are enforced inside GroupService.remove_member().
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, *args, **kwargs):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        user_to_remove = get_object_or_404(User, pk=self.kwargs["user_id"])
-        is_owner = user_to_remove == group.owner
-        is_self = request.user == user_to_remove
+        try:
+            result = group_service.remove_member(
+                group_id=self.kwargs["pk"],
+                user_id=self.kwargs["user_id"],
+                requested_by=request.user,
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Owner cannot be removed by anyone (including themselves directly)
-        if is_owner:
-            # If owner tries to leave and is the only member -> delete group
-            if is_self and group.memberships.count() == 1:
-                group.delete()
-                return Response(
-                    {"detail": "You were the only member. The group has been deleted."},
-                    status=status.HTTP_200_OK,
-                )
-            # If owner tries to leave and there are other admins -> transfer ownership
-            elif is_self:
-                earliest_admin = group.get_earliest_admin()
-                if earliest_admin:
-                    group.owner = earliest_admin.user
-                    group.save(update_fields=["owner"])
-                    membership = get_object_or_404(Membership, group=group, user=request.user)
-                    membership.delete()
-                    EventBus.publish(MemberLeftEvent(group=group, user=request.user))
-                    return Response(
-                        {"detail": "Ownership transferred. You have left the group."},
-                        status=status.HTTP_200_OK,
-                    )
-                else:
-                    return Response(
-                        {"error": "Cannot leave without another admin. Delete the group instead."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            else:
-                return Response(
-                    {"error": "The group owner cannot be removed by others."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-        # Non-owner removal
-        is_admin = Membership.objects.filter(user=request.user, group=group, role="admin").exists()
-
-        if not (is_admin or is_self):
-            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-        membership = get_object_or_404(Membership, group=group, user=user_to_remove)
-        membership.delete()
-        # Publish event
-        EventBus.publish(MemberLeftEvent(group=group, user=user_to_remove))
-
-        # If the removed user was admin and there are no admins left,
-        # promote the earliest member to admin
-        if not group.memberships.filter(role="admin").exists():
-            first_member = group.memberships.order_by("joined_at").first()
-            if first_member:
-                first_member.role = "admin"
-                first_member.save(update_fields=["role"])
-
+        # If the group was deleted because the owner was the only member,
+        # return a 200 with a message instead of 204
+        if "detail" in result and "deleted" in result["detail"].lower():
+            return Response(result, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -211,33 +155,24 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
     queryset = Membership.objects.all()
     http_method_names = ["patch"]
 
-    def get_object(self):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        user = get_object_or_404(User, pk=self.kwargs["user_id"])
-        return get_object_or_404(Membership, group=group, user=user)
-
     def patch(self, request, *args, **kwargs):
-        membership = self.get_object()
-        group = membership.group
-
-        if membership.user == group.owner:
+        new_role = request.data.get("role")
+        if not new_role:
             return Response(
-                {"error": "Cannot change the role of the group owner."},
-                status=status.HTTP_403_FORBIDDEN,
+                {"error": "role field is required."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        new_role = request.data.get("role")
-        if new_role not in ["admin", "member"]:
-            return Response({"error": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
-
-        membership.role = new_role
-        membership.save()
-
-        if not group.memberships.filter(role="admin").exists():
-            first_member = group.memberships.order_by("joined_at").first()
-            if first_member:
-                first_member.role = "admin"
-                first_member.save(update_fields=["role"])
+        try:
+            membership = group_service.change_role(
+                group_id=self.kwargs["pk"],
+                user_id=self.kwargs["user_id"],
+                new_role=new_role,
+                requested_by=request.user,
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(membership)
         return Response(serializer.data)
@@ -257,30 +192,24 @@ class TransferOwnershipView(generics.GenericAPIView):
     serializer_class = serializers.Serializer
 
     def post(self, request, *args, **kwargs):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-
-        if request.user != group.owner:
-            return Response(
-                {"error": "Only the group owner can transfer ownership."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         new_owner_id = request.data.get("user_id")
-        new_owner = get_object_or_404(User, pk=new_owner_id)
-        membership = get_object_or_404(Membership, group=group, user=new_owner)
+        if not new_owner_id:
+            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if membership.role != "admin":
-            membership.role = "admin"
-            membership.save(update_fields=["role"])
-
-        group.owner = new_owner
-        group.save(update_fields=["owner"])
+        try:
+            group = group_service.transfer_ownership(
+                group_id=self.kwargs["pk"], new_owner_id=new_owner_id, current_owner=request.user
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {
                 "detail": "Ownership transferred successfully.",
-                "new_owner_id": new_owner.pk,
-                "new_owner_phone": new_owner.phone_number,
+                "new_owner_id": group.owner.pk,
+                "new_owner_phone": group.owner.phone_number,
             },
             status=status.HTTP_200_OK,
         )
@@ -312,19 +241,13 @@ class GroupJoinByInviteView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        code = serializer.validated_data["invite_code"]
-        group = get_object_or_404(Group, invite_code=code)
-        if not group.is_invite_code_valid():
-            return Response(
-                {"error": "Invite code is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        membership, created = Membership.objects.get_or_create(
-            user=request.user, group=group, defaults={"role": "member"}
-        )
-        if not created:
-            return Response({"detail": "You are already a member."}, status=status.HTTP_200_OK)
-        # Publish event
-        EventBus.publish(MemberJoinedEvent(membership=membership))
+        invite_code = serializer.validated_data["invite_code"]
+
+        try:
+            group_service.join_by_invite_code(invite_code=invite_code, user=request.user)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(
             {"detail": "Successfully joined the group."}, status=status.HTTP_201_CREATED
         )
@@ -348,10 +271,19 @@ class ExpenseListCreateView(generics.ListCreateAPIView):
         return group.expenses.all()
 
     def perform_create(self, serializer):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        expense = serializer.save(group=group, paid_by=self.request.user)
-        # Publish event
-        EventBus.publish(ExpenseCreatedEvent(expense=expense))
+        self._created_expense = expense_service.create_expense(
+            group_id=self.kwargs["pk"],
+            paid_by=self.request.user,
+            validated_data=serializer.validated_data,
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        out_serializer = ExpenseDetailSerializer(self._created_expense)
+        headers = {}
+        return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -359,6 +291,7 @@ class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     permission_classes = [IsOwnerOrAdmin]
     serializer_class = ExpenseDetailSerializer
+    lookup_url_kwarg = "eid"
 
     def get_queryset(self):
         group = get_object_or_404(Group, pk=self.kwargs["pk"])
@@ -371,18 +304,16 @@ class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
             and serializer.validated_data["is_confirmed"]
         ):
             if not instance.is_confirmed:
-                # Save first, then publish event
-                serializer.save()
-                EventBus.publish(
-                    ExpenseConfirmedEvent(expense=instance, confirmed_by=self.request.user)
+                expense_service.confirm_expense(
+                    expense_id=instance.pk, confirmed_by=self.request.user
                 )
+                # Refresh instance to reflect changes
+                instance.refresh_from_db()
                 return
         serializer.save()
 
     def perform_destroy(self, instance):
-        # Publish event before deletion so we still have the data
-        EventBus.publish(ExpenseDeletedEvent(expense=instance, deleted_by=self.request.user))
-        instance.delete()
+        expense_service.delete_expense(expense_id=instance.pk, deleted_by=self.request.user)
 
 
 # ── Balances ────────────────────────────────────────────────────
@@ -394,33 +325,7 @@ class BalanceView(generics.GenericAPIView):
     permission_classes = [IsGroupMember]
 
     def get(self, request, *args, **kwargs):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        members = group.memberships.select_related("user").all()
-        balances = []
-        for m in members:
-            user = m.user
-            paid = (
-                Expense.objects.filter(group=group, paid_by=user, is_confirmed=True).aggregate(
-                    total=Sum("total_amount")
-                )["total"]
-                or 0
-            )
-            owed = (
-                ExpenseSplit.objects.filter(
-                    expense__group=group, expense__is_confirmed=True, user=user, settled=False
-                ).aggregate(total=Sum("amount"))["total"]
-                or 0
-            )
-            net = paid - owed
-            balances.append(
-                {
-                    "phone_number": user.phone_number,
-                    "full_name": user.full_name or user.phone_number,
-                    "paid": paid,
-                    "owed": owed,
-                    "net": net,
-                }
-            )
+        balances = balance_service.get_balances(group_id=self.kwargs["pk"])
         return Response(balances)
 
 

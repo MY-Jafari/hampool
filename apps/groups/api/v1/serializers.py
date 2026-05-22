@@ -16,22 +16,13 @@ User = get_user_model()
 logger = logging.getLogger("accounts")
 
 
-# ── Group Create Serializer ────────────────────────────────────────
-
-
-class GroupCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating a new group (POST)."""
-
-    class Meta:
-        model = Group
-        fields = ("name", "description", "budget_limit")
-
-
-# ── Membership Serializers ────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# 1. Membership Serializers (defined before GroupSerializer)
+# ═══════════════════════════════════════════════════════════════════
 
 
 class MembershipSerializer(serializers.ModelSerializer):
-    """Serializer for membership responses."""
+    """Serializer for membership responses (used inside GroupSerializer)."""
 
     user_phone = serializers.CharField(source="user.phone_number", read_only=True)
     user_name = serializers.CharField(source="user.full_name", read_only=True)
@@ -66,7 +57,17 @@ class MembershipResponseSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "joined_at")
 
 
-# ── Group Serializer ──────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# 2. Group Serializers
+# ═══════════════════════════════════════════════════════════════════
+
+
+class GroupCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating a new group (POST). Only validates input."""
+
+    class Meta:
+        model = Group
+        fields = ("name", "description", "budget_limit")
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -108,19 +109,22 @@ class GroupSerializer(serializers.ModelSerializer):
         return obj.remaining_budget()
 
 
-# ── Expense Serializers ───────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# 3. Expense Serializers
+# ═══════════════════════════════════════════════════════════════════
 
 
 class ExpenseSplitSerializer(serializers.ModelSerializer):
     """
-    Serializer for a user's split in an expense.
+    Serializer for a user's split in an expense (equal/exact/percentage).
 
-    For 'percentage' split_type, the client sends 'percentage' (int, 0-100)
-    and the amount is calculated automatically.
-    For other types, 'amount' is required.
+    The client may send a 'percentage' field for percentage-based splits.
+    The 'user' field is a PrimaryKeyRelatedField that expects a user ID
+    as input and serializes as the user's primary key.
     """
 
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = ExpenseSplit
@@ -129,13 +133,11 @@ class ExpenseSplitSerializer(serializers.ModelSerializer):
             "amount": {"required": False},
         }
 
-    def validate(self, data):
-        # For percentage, percentage field must be present; amount will be set later
-        return data
-
 
 class ExpenseItemShareSerializer(serializers.ModelSerializer):
     """Serializer for a user's share of a specific item."""
+
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = ExpenseItemShare
@@ -156,10 +158,7 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating a new expense (POST).
 
-    Supports equal, exact, percentage, and itemized splits.
-    - equal/exact: splits with 'amount'
-    - percentage: splits with 'percentage' (sum must be 100)
-    - itemized: items with shares (amount)
+    Only validates input. Creation is handled by ExpenseService.
     """
 
     splits = ExpenseSplitSerializer(many=True, required=False)
@@ -184,15 +183,11 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
             splits_data = self.initial_data.get("splits", [])
             if not splits_data:
                 raise serializers.ValidationError("splits required for equal/exact")
-            # Ensure each split has 'amount'
             for split in splits_data:
                 if "amount" not in split:
                     raise serializers.ValidationError(
                         "Each split must have an 'amount' for equal/exact."
                     )
-            if split_type == "exact":
-                # Optional: check sum of amounts == total_amount
-                pass
 
         elif split_type == "percentage":
             splits_data = self.initial_data.get("splits", [])
@@ -214,40 +209,8 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
             items_data = self.initial_data.get("items", [])
             if not items_data:
                 raise serializers.ValidationError("items required for itemized")
-            # Validation of item shares can be added if needed
 
         return data
-
-    def create(self, validated_data):
-        splits_data = self.initial_data.get("splits", [])
-        items_data = self.initial_data.get("items", [])
-        validated_data.pop("splits", None)
-        validated_data.pop("items", None)
-
-        expense = Expense.objects.create(**validated_data)
-
-        if expense.split_type in ["equal", "exact"]:
-            for split in splits_data:
-                ExpenseSplit.objects.create(
-                    expense=expense, user_id=split["user"], amount=split["amount"]
-                )
-
-        elif expense.split_type == "percentage":
-            total_amount = expense.total_amount
-            for split in splits_data:
-                percent = split["percentage"]
-                amount = int(total_amount * percent / 100)
-                ExpenseSplit.objects.create(expense=expense, user_id=split["user"], amount=amount)
-
-        elif expense.split_type == "itemized":
-            for item_data in items_data:
-                shares_data = item_data.pop("shares")
-                item = ExpenseItem.objects.create(expense=expense, **item_data)
-                for share in shares_data:
-                    ExpenseItemShare.objects.create(
-                        item=item, user_id=share["user"], amount=share["amount"]
-                    )
-        return expense
 
 
 class ExpenseDetailSerializer(serializers.ModelSerializer):
@@ -261,7 +224,9 @@ class ExpenseDetailSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# ── Activity & Balance Serializers ────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════
+# 4. Activity, Balance, and Invite Serializers
+# ═══════════════════════════════════════════════════════════════════
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
