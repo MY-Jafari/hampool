@@ -263,3 +263,25 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.action} - {self.group}"
+
+
+class Balance(models.Model):
+    """
+    Materialized projection of a user's net balance in a group.
+
+    Updated synchronously inside the atomic transaction of every
+    expense or settlement write.  ``select_for_update()`` is used
+    when updating to prevent race conditions.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="balances"
+    )
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="balances")
+    amount = models.BigIntegerField(
+        default=0, help_text="Net balance: positive = creditor, negative = debtor"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "group")

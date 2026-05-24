@@ -1,76 +1,109 @@
 """
 Audit log handlers for group events.
 
-These handlers subscribe to domain events via the EventBus
-and create the corresponding ActivityLog records.
+These handlers are invoked by the Outbox dispatcher.  They receive a
+plain dictionary (payload) containing the identifiers needed to
+reconstruct the original objects from the database.  Each handler
+creates an ActivityLog record to keep a permanent audit trail.
 """
 
-from apps.groups.models import ActivityLog
-from apps.groups.events import (
-    GroupCreated,
-    MemberJoined,
-    MemberLeft,
-    ExpenseCreated,
-    ExpenseConfirmed,
-    ExpenseDeleted,
-)
+from django.contrib.auth import get_user_model
+from apps.groups.models import Group, Membership, Expense, ActivityLog
+
+User = get_user_model()
 
 
-def log_group_created(event: GroupCreated) -> None:
-    """Create an audit log entry when a group is created."""
+def log_group_created(payload: dict) -> None:
+    """Create an audit log entry when a group is created.
+
+    Expected payload keys:
+        - group_id (int)
+    """
+    group = Group.objects.get(pk=payload["group_id"])
     ActivityLog.objects.create(
-        group=event.group,
-        user=event.group.created_by,
+        group=group,
+        user=group.created_by,
         action="group_created",
-        description=f'Group "{event.group.name}" created',
+        description=f'Group "{group.name}" created',
     )
 
 
-def log_member_joined(event: MemberJoined) -> None:
-    """Create an audit log entry when a member joins."""
+def log_member_joined(payload: dict) -> None:
+    """Create an audit log entry when a member joins.
+
+    Expected payload keys:
+        - membership_id (int)
+    """
+    membership = Membership.objects.select_related("user", "group").get(pk=payload["membership_id"])
     ActivityLog.objects.create(
-        group=event.membership.group,
-        user=event.membership.user,
+        group=membership.group,
+        user=membership.user,
         action="member_joined",
-        description=f"{event.membership.user.phone_number} joined as {event.membership.role}",
+        description=f"{membership.user.phone_number} joined as {membership.role}",
     )
 
 
-def log_member_left(event: MemberLeft) -> None:
-    """Create an audit log entry when a member leaves."""
+def log_member_left(payload: dict) -> None:
+    """Create an audit log entry when a member leaves.
+
+    Expected payload keys:
+        - group_id (int)
+        - user_id (int)
+    """
+    group = Group.objects.get(pk=payload["group_id"])
+    user = User.objects.get(pk=payload["user_id"])
     ActivityLog.objects.create(
-        group=event.group,
-        user=event.user,
+        group=group,
+        user=user,
         action="member_left",
-        description=f"{event.user.phone_number} left the group",
+        description=f"{user.phone_number} left the group",
     )
 
 
-def log_expense_created(event: ExpenseCreated) -> None:
-    """Create an audit log entry when an expense is created."""
+def log_expense_created(payload: dict) -> None:
+    """Create an audit log entry when an expense is created.
+
+    Expected payload keys:
+        - expense_id (int)
+    """
+    expense = Expense.objects.select_related("group", "paid_by").get(pk=payload["expense_id"])
     ActivityLog.objects.create(
-        group=event.expense.group,
-        user=event.expense.paid_by,
+        group=expense.group,
+        user=expense.paid_by,
         action="expense_created",
-        description=f'Expense "{event.expense.description}" created',
+        description=f'Expense "{expense.description}" created',
     )
 
 
-def log_expense_confirmed(event: ExpenseConfirmed) -> None:
-    """Create an audit log entry when an expense is confirmed."""
+def log_expense_confirmed(payload: dict) -> None:
+    """Create an audit log entry when an expense is confirmed.
+
+    Expected payload keys:
+        - expense_id (int)
+        - confirmed_by_id (int)
+    """
+    expense = Expense.objects.select_related("group").get(pk=payload["expense_id"])
+    confirmed_by = User.objects.get(pk=payload["confirmed_by_id"])
     ActivityLog.objects.create(
-        group=event.expense.group,
-        user=event.confirmed_by,
+        group=expense.group,
+        user=confirmed_by,
         action="expense_confirmed",
-        description=f'Expense "{event.expense.description}" confirmed',
+        description=f'Expense "{expense.description}" confirmed',
     )
 
 
-def log_expense_deleted(event: ExpenseDeleted) -> None:
-    """Create an audit log entry when an expense is deleted."""
+def log_expense_deleted(payload: dict) -> None:
+    """Create an audit log entry when an expense is deleted.
+
+    Expected payload keys:
+        - expense_id (int)
+        - deleted_by_id (int)
+    """
+    expense = Expense.objects.select_related("group").get(pk=payload["expense_id"])
+    deleted_by = User.objects.get(pk=payload["deleted_by_id"])
     ActivityLog.objects.create(
-        group=event.expense.group,
-        user=event.deleted_by,
+        group=expense.group,
+        user=deleted_by,
         action="expense_deleted",
-        description=f'Expense "{event.expense.description}" deleted',
+        description=f'Expense "{expense.description}" deleted',
     )

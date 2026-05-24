@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     # Local
     "apps.accounts",
     "apps.groups",
+    "apps.outbox",
 ]
 
 MIDDLEWARE = [

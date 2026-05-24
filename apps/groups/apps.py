@@ -8,16 +8,8 @@ class GroupsConfig(AppConfig):
     verbose_name = "Groups & Expenses"
 
     def ready(self):
-        # Register audit log handlers with the EventBus
-        from core.events import EventBus
-        from apps.groups.events import (
-            GroupCreated,
-            MemberJoined,
-            MemberLeft,
-            ExpenseCreated,
-            ExpenseConfirmed,
-            ExpenseDeleted,
-        )
+        # Register audit log handlers with the Outbox dispatcher
+        from apps.outbox.handlers import register
         from apps.groups.audit_handlers import (
             log_group_created,
             log_member_joined,
@@ -27,9 +19,9 @@ class GroupsConfig(AppConfig):
             log_expense_deleted,
         )
 
-        EventBus.subscribe(GroupCreated, log_group_created)
-        EventBus.subscribe(MemberJoined, log_member_joined)
-        EventBus.subscribe(MemberLeft, log_member_left)
-        EventBus.subscribe(ExpenseCreated, log_expense_created)
-        EventBus.subscribe(ExpenseConfirmed, log_expense_confirmed)
-        EventBus.subscribe(ExpenseDeleted, log_expense_deleted)
+        register("GroupCreated", log_group_created)
+        register("MemberJoined", log_member_joined)
+        register("MemberLeft", log_member_left)
+        register("ExpenseCreated", log_expense_created)
+        register("ExpenseConfirmed", log_expense_confirmed)
+        register("ExpenseDeleted", log_expense_deleted)

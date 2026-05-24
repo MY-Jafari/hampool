@@ -4,9 +4,10 @@ Service layer for the groups module.
 This module contains all core business logic for managing groups, members,
 expenses, and balances.  Every critical write operation is wrapped in an
 atomic database transaction to guarantee that the database never ends up
-in an inconsistent state.  Events are published **only after** a
-transaction commits successfully, ensuring side‑effects (audit logs,
-notifications, etc.) reflect what was actually persisted.
+in an inconsistent state.  Events are published **inside** the transaction
+via the Outbox pattern and dispatched asynchronously after commit,
+ensuring side‑effects (audit logs, notifications, etc.) reflect what
+was actually persisted.
 """
 
 from django.db import transaction
@@ -21,16 +22,10 @@ from apps.groups.models import (
     ExpenseSplit,
     ExpenseItem,
     ExpenseItemShare,
+    Balance,  # <-- Added
 )
-from apps.groups.events import (
-    GroupCreated as GroupCreatedEvent,
-    MemberJoined as MemberJoinedEvent,
-    MemberLeft as MemberLeftEvent,
-    ExpenseCreated as ExpenseCreatedEvent,
-    ExpenseConfirmed as ExpenseConfirmedEvent,
-    ExpenseDeleted as ExpenseDeletedEvent,
-)
-from core.events import EventBus
+from apps.outbox.services import OutboxService
+from apps.outbox.tasks import dispatch_outbox_event
 
 User = get_user_model()
 
@@ -63,8 +58,9 @@ class GroupService:
             )
             Membership.objects.create(user=created_by, group=group, role="admin")
             group.generate_invite_code()
-
-        EventBus.publish(GroupCreatedEvent(group=group))
+            # Outbox event
+            outbox_event = OutboxService.publish_event("GroupCreated", {"group_id": group.id})
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return group
 
     def add_member(self, *, group_id: int, phone_number: str) -> Membership:
@@ -84,8 +80,11 @@ class GroupService:
             )
             if not created:
                 raise ValueError("User is already a member.")
-
-        EventBus.publish(MemberJoinedEvent(membership=membership))
+            # Outbox event
+            outbox_event = OutboxService.publish_event(
+                "MemberJoined", {"membership_id": membership.id}
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return membership
 
     def join_by_invite_code(self, *, invite_code: str, user: User) -> Membership:
@@ -105,8 +104,11 @@ class GroupService:
             )
             if not created:
                 raise ValueError("You are already a member of this group.")
-
-        EventBus.publish(MemberJoinedEvent(membership=membership))
+            # Outbox event
+            outbox_event = OutboxService.publish_event(
+                "MemberJoined", {"membership_id": membership.id}
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return membership
 
     def remove_member(self, *, group_id: int, user_id: int, requested_by: User) -> dict:
@@ -128,6 +130,7 @@ class GroupService:
             if is_owner:
                 if is_self and group.memberships.count() == 1:
                     group.delete()
+                    # No need to publish an event for the deleted group here.
                     return {"detail": ("You were the only member. " "The group has been deleted.")}
                 elif is_self:
                     earliest_admin = group.get_earliest_admin()
@@ -135,7 +138,15 @@ class GroupService:
                         group.owner = earliest_admin.user
                         group.save(update_fields=["owner"])
                         Membership.objects.get(group=group, user=requested_by).delete()
-                        EventBus.publish(MemberLeftEvent(group=group, user=requested_by))
+                        # Outbox event for member left
+                        outbox_event = OutboxService.publish_event(
+                            "MemberLeft",
+                            {
+                                "group_id": group.id,
+                                "user_id": requested_by.id,
+                            },
+                        )
+                        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
                         return {"detail": ("Ownership transferred. " "You have left the group.")}
                     else:
                         raise ValueError(
@@ -152,19 +163,28 @@ class GroupService:
                 raise PermissionError("Permission denied.")
 
             Membership.objects.get(group=group, user=user_to_remove).delete()
-            EventBus.publish(MemberLeftEvent(group=group, user=user_to_remove))
-
+            # Outbox event for member left
+            outbox_event = OutboxService.publish_event(
+                "MemberLeft",
+                {"group_id": group.id, "user_id": user_to_remove.id},
+            )
             # Promote the earliest member if no admins remain
             if not group.memberships.filter(role="admin").exists():
                 first_member = group.memberships.order_by("joined_at").first()
                 if first_member:
                     first_member.role = "admin"
                     first_member.save(update_fields=["role"])
+            transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
 
         return {"detail": "Member removed."}
 
     def change_role(
-        self, *, group_id: int, user_id: int, new_role: str, requested_by: User
+        self,
+        *,
+        group_id: int,
+        user_id: int,
+        new_role: str,
+        requested_by: User,
     ) -> Membership:
         """
         Change a member's role (admin ↔ member).
@@ -226,11 +246,14 @@ class ExpenseService:
 
     All write operations are atomic.  Events are fired after the
     transaction commits, ensuring side‑effects see the final state.
+    Balance projections are updated synchronously inside the same
+    atomic block with row‑level locking to prevent race conditions.
     """
 
     def create_expense(self, *, group_id: int, paid_by: User, validated_data: dict) -> Expense:
         """
-        Create an expense together with its splits or items.
+        Create an expense together with its splits or items and update
+        the balance projections for all affected users.
 
         ``validated_data`` is the output of
         :class:`ExpenseCreateSerializer`.  User references are
@@ -248,7 +271,9 @@ class ExpenseService:
             if split_type in ("equal", "exact"):
                 for s in splits_data:
                     ExpenseSplit.objects.create(
-                        expense=expense, user_id=s["user"].pk, amount=s["amount"]
+                        expense=expense,
+                        user_id=s["user"].pk,
+                        amount=s["amount"],
                     )
             elif split_type == "percentage":
                 total = expense.total_amount
@@ -262,15 +287,22 @@ class ExpenseService:
                     item = ExpenseItem.objects.create(expense=expense, **item_data)
                     for share in shares:
                         ExpenseItemShare.objects.create(
-                            item=item, user_id=share["user"].pk, amount=share["amount"]
+                            item=item,
+                            user_id=share["user"].pk,
+                            amount=share["amount"],
                         )
 
-        EventBus.publish(ExpenseCreatedEvent(expense=expense))
+            # Update balance projections atomically
+            BalanceService.update_balance_for_expense(expense)
+
+            # Outbox event
+            outbox_event = OutboxService.publish_event("ExpenseCreated", {"expense_id": expense.id})
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return expense
 
     def confirm_expense(self, *, expense_id: int, confirmed_by: User) -> Expense:
         """
-        Mark an expense as confirmed.
+        Mark an expense as confirmed and refresh balance projections.
 
         Raises ``ValueError`` if the expense is already confirmed.
         """
@@ -281,24 +313,52 @@ class ExpenseService:
             expense.is_confirmed = True
             expense.save()
 
-        EventBus.publish(ExpenseConfirmedEvent(expense=expense, confirmed_by=confirmed_by))
+            # Balance projections change because the expense is now confirmed
+            BalanceService.update_balance_for_expense(expense)
+
+            # Outbox event
+            outbox_event = OutboxService.publish_event(
+                "ExpenseConfirmed",
+                {
+                    "expense_id": expense.id,
+                    "confirmed_by_id": confirmed_by.id,
+                },
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return expense
 
     def delete_expense(self, *, expense_id: int, deleted_by: User) -> None:
-        """Delete an expense (and its splits/items via CASCADE)."""
+        """Delete an expense (and its splits/items via CASCADE) and update balances."""
         with transaction.atomic():
             expense = get_object_or_404(Expense, pk=expense_id)
+            # Capture necessary data before deletion
+            event_data = {
+                "expense_id": expense.id,
+                "deleted_by_id": deleted_by.id,
+            }
+            # Capture affected users for balance update
+            affected_users = set()
+            affected_users.add(expense.paid_by)
+            for split in expense.splits.all():
+                affected_users.add(split.user)
             expense.delete()
 
-        EventBus.publish(ExpenseDeletedEvent(expense=expense, deleted_by=deleted_by))
+            # Recalculate balances for affected users
+            for user in affected_users:
+                BalanceService.recalculate_balance_for_user(user, expense.group)
+
+            # Outbox event after deletion so that we still have the ID
+            outbox_event = OutboxService.publish_event("ExpenseDeleted", event_data)
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
 
 
 class BalanceService:
     """
-    Read‑only balance calculations.
+    Balance projection management.
 
-    These methods do not modify data and therefore do not run inside
-    explicit transactions.
+    Balances are materialized views of net amounts.  Writes to them
+    use ``select_for_update()`` to serialise concurrent operations and
+    prevent race conditions.
     """
 
     def get_balances(self, group_id: int) -> list[dict]:
@@ -322,7 +382,10 @@ class BalanceService:
             )
             owed = (
                 ExpenseSplit.objects.filter(
-                    expense__group=group, expense__is_confirmed=True, user=user, settled=False
+                    expense__group=group,
+                    expense__is_confirmed=True,
+                    user=user,
+                    settled=False,
                 ).aggregate(total=Sum("amount"))["total"]
                 or 0
             )
@@ -337,3 +400,40 @@ class BalanceService:
             )
 
         return balances
+
+    @staticmethod
+    def update_balance_for_expense(expense: Expense) -> None:
+        """
+        Recalculate and persist the net balance for every user affected
+        by the given expense.  Must be called inside an atomic block.
+        Uses ``select_for_update()`` to lock the balance rows.
+        """
+        group = expense.group
+        users = set()
+        users.add(expense.paid_by)
+        for split in expense.splits.all():
+            users.add(split.user)
+        for user in users:
+            BalanceService.recalculate_balance_for_user(user, group)
+
+    @staticmethod
+    def recalculate_balance_for_user(user: User, group: Group) -> None:
+        """
+        Lock the balance row for the given user and group, then
+        recalculate it from confirmed expenses and unsettled splits.
+        """
+        balance, _ = Balance.objects.select_for_update().get_or_create(user=user, group=group)
+        paid = (
+            Expense.objects.filter(group=group, paid_by=user, is_confirmed=True).aggregate(
+                total=Sum("total_amount")
+            )["total"]
+            or 0
+        )
+        owed = (
+            ExpenseSplit.objects.filter(
+                expense__group=group, expense__is_confirmed=True, user=user, settled=False
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        balance.amount = paid - owed
+        balance.save()
