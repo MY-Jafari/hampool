@@ -8,7 +8,6 @@ class GroupsConfig(AppConfig):
     verbose_name = "Groups & Expenses"
 
     def ready(self):
-        # Register audit log handlers with the Outbox dispatcher
         from apps.outbox.handlers import register
         from apps.groups.audit_handlers import (
             log_group_created,
@@ -17,6 +16,9 @@ class GroupsConfig(AppConfig):
             log_expense_created,
             log_expense_confirmed,
             log_expense_deleted,
+            log_settlement_created,
+            log_settlement_confirmed,
+            log_settlement_reversed,
         )
 
         register("GroupCreated", log_group_created)
@@ -25,3 +27,6 @@ class GroupsConfig(AppConfig):
         register("ExpenseCreated", log_expense_created)
         register("ExpenseConfirmed", log_expense_confirmed)
         register("ExpenseDeleted", log_expense_deleted)
+        register("SettlementCreated", log_settlement_created)
+        register("SettlementConfirmed", log_settlement_confirmed)
+        register("SettlementReversed", log_settlement_reversed)

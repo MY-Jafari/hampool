@@ -20,6 +20,21 @@ urlpatterns = [
     path("<int:pk>/invite/", views.GroupInviteGenerateView.as_view(), name="group-invite-generate"),
     path("<int:pk>/expenses/", views.ExpenseListCreateView.as_view(), name="expense-list-create"),
     path("<int:pk>/expenses/<int:eid>/", views.ExpenseDetailView.as_view(), name="expense-detail"),
+    path(
+        "<int:pk>/settlements/",
+        views.SettlementListCreateView.as_view(),
+        name="settlement-list-create",
+    ),
+    path(
+        "<int:pk>/settlements/<int:sid>/confirm/",
+        views.SettlementConfirmView.as_view(),
+        name="settlement-confirm",
+    ),
+    path(
+        "<int:pk>/settlements/<int:sid>/reverse/",
+        views.SettlementReverseView.as_view(),
+        name="settlement-reverse",
+    ),
     path("<int:pk>/balances/", views.BalanceView.as_view(), name="group-balances"),
     path("<int:pk>/activities/", views.ActivityLogView.as_view(), name="group-activities"),
 ]

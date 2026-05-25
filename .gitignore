@@ -69,3 +69,7 @@ dmypy.json
 *.bak
 *.backup
 *_backup/
+*/migrations/*
+/migrations
+/migrations/*
+apps/groups/migrations/0003_alter_activitylog_action_settlement.py

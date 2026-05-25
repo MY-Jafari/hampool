@@ -8,17 +8,12 @@ creates an ActivityLog record to keep a permanent audit trail.
 """
 
 from django.contrib.auth import get_user_model
-from apps.groups.models import Group, Membership, Expense, ActivityLog
+from apps.groups.models import Group, Membership, Expense, Settlement, ActivityLog
 
 User = get_user_model()
 
 
 def log_group_created(payload: dict) -> None:
-    """Create an audit log entry when a group is created.
-
-    Expected payload keys:
-        - group_id (int)
-    """
     group = Group.objects.get(pk=payload["group_id"])
     ActivityLog.objects.create(
         group=group,
@@ -29,11 +24,6 @@ def log_group_created(payload: dict) -> None:
 
 
 def log_member_joined(payload: dict) -> None:
-    """Create an audit log entry when a member joins.
-
-    Expected payload keys:
-        - membership_id (int)
-    """
     membership = Membership.objects.select_related("user", "group").get(pk=payload["membership_id"])
     ActivityLog.objects.create(
         group=membership.group,
@@ -44,12 +34,6 @@ def log_member_joined(payload: dict) -> None:
 
 
 def log_member_left(payload: dict) -> None:
-    """Create an audit log entry when a member leaves.
-
-    Expected payload keys:
-        - group_id (int)
-        - user_id (int)
-    """
     group = Group.objects.get(pk=payload["group_id"])
     user = User.objects.get(pk=payload["user_id"])
     ActivityLog.objects.create(
@@ -61,11 +45,6 @@ def log_member_left(payload: dict) -> None:
 
 
 def log_expense_created(payload: dict) -> None:
-    """Create an audit log entry when an expense is created.
-
-    Expected payload keys:
-        - expense_id (int)
-    """
     expense = Expense.objects.select_related("group", "paid_by").get(pk=payload["expense_id"])
     ActivityLog.objects.create(
         group=expense.group,
@@ -76,12 +55,6 @@ def log_expense_created(payload: dict) -> None:
 
 
 def log_expense_confirmed(payload: dict) -> None:
-    """Create an audit log entry when an expense is confirmed.
-
-    Expected payload keys:
-        - expense_id (int)
-        - confirmed_by_id (int)
-    """
     expense = Expense.objects.select_related("group").get(pk=payload["expense_id"])
     confirmed_by = User.objects.get(pk=payload["confirmed_by_id"])
     ActivityLog.objects.create(
@@ -93,12 +66,6 @@ def log_expense_confirmed(payload: dict) -> None:
 
 
 def log_expense_deleted(payload: dict) -> None:
-    """Create an audit log entry when an expense is deleted.
-
-    Expected payload keys:
-        - expense_id (int)
-        - deleted_by_id (int)
-    """
     expense = Expense.objects.select_related("group").get(pk=payload["expense_id"])
     deleted_by = User.objects.get(pk=payload["deleted_by_id"])
     ActivityLog.objects.create(
@@ -106,4 +73,45 @@ def log_expense_deleted(payload: dict) -> None:
         user=deleted_by,
         action="expense_deleted",
         description=f'Expense "{expense.description}" deleted',
+    )
+
+
+def log_settlement_created(payload: dict) -> None:
+    settlement = Settlement.objects.select_related("from_user", "to_user", "group").get(
+        pk=payload["settlement_id"]
+    )
+    ActivityLog.objects.create(
+        group=settlement.group,
+        user=settlement.created_by,
+        action="settlement_created",
+        description=(
+            f"{settlement.from_user.phone_number} → "
+            f"{settlement.to_user.phone_number}: {settlement.amount} T"
+        ),
+    )
+
+
+def log_settlement_confirmed(payload: dict) -> None:
+    settlement = Settlement.objects.select_related("from_user", "to_user", "group").get(
+        pk=payload["settlement_id"]
+    )
+    confirmed_by = User.objects.get(pk=payload["confirmed_by_id"])
+    ActivityLog.objects.create(
+        group=settlement.group,
+        user=confirmed_by,
+        action="settlement_confirmed",
+        description=f"Settlement {settlement.id} confirmed",
+    )
+
+
+def log_settlement_reversed(payload: dict) -> None:
+    settlement = Settlement.objects.select_related("from_user", "to_user", "group").get(
+        pk=payload["settlement_id"]
+    )
+    reversed_by = User.objects.get(pk=payload["reversed_by_id"])
+    ActivityLog.objects.create(
+        group=settlement.group,
+        user=reversed_by,
+        action="settlement_reversed",
+        description=f"Settlement {settlement.id} reversed",
     )

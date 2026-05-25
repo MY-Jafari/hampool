@@ -10,6 +10,7 @@ from apps.groups.models import (
     ExpenseItem,
     ExpenseItemShare,
     ActivityLog,
+    Settlement,
 )
 
 User = get_user_model()
@@ -17,13 +18,11 @@ logger = logging.getLogger("accounts")
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 1. Membership Serializers (defined before GroupSerializer)
+# 1. Membership Serializers
 # ═══════════════════════════════════════════════════════════════════
 
 
 class MembershipSerializer(serializers.ModelSerializer):
-    """Serializer for membership responses (used inside GroupSerializer)."""
-
     user_phone = serializers.CharField(source="user.phone_number", read_only=True)
     user_name = serializers.CharField(source="user.full_name", read_only=True)
 
@@ -34,20 +33,15 @@ class MembershipSerializer(serializers.ModelSerializer):
 
 
 class AddMemberSerializer(serializers.Serializer):
-    """Serializer for adding a member by phone number."""
-
     phone_number = serializers.CharField(max_length=11)
 
     def validate_phone_number(self, value):
-        """Validate that the phone number belongs to an existing user."""
         if not User.objects.filter(phone_number=value).exists():
             raise serializers.ValidationError("User with this phone number not found.")
         return value
 
 
 class MembershipResponseSerializer(serializers.ModelSerializer):
-    """Serializer for membership creation response."""
-
     user_phone = serializers.CharField(source="user.phone_number", read_only=True)
     user_name = serializers.CharField(source="user.full_name", read_only=True)
 
@@ -63,16 +57,12 @@ class MembershipResponseSerializer(serializers.ModelSerializer):
 
 
 class GroupCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating a new group (POST). Only validates input."""
-
     class Meta:
         model = Group
         fields = ("name", "description", "budget_limit")
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    """Serializer for group details (GET/PATCH)."""
-
     memberships = MembershipSerializer(many=True, read_only=True)
     total_expenses = serializers.SerializerMethodField()
     remaining_budget = serializers.SerializerMethodField()
@@ -115,28 +105,16 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class ExpenseSplitSerializer(serializers.ModelSerializer):
-    """
-    Serializer for a user's split in an expense (equal/exact/percentage).
-
-    The client may send a 'percentage' field for percentage-based splits.
-    The 'user' field is a PrimaryKeyRelatedField that expects a user ID
-    as input and serializes as the user's primary key.
-    """
-
     percentage = serializers.IntegerField(required=False, min_value=0, max_value=100)
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
         model = ExpenseSplit
         fields = ("user", "amount", "percentage", "settled")
-        extra_kwargs = {
-            "amount": {"required": False},
-        }
+        extra_kwargs = {"amount": {"required": False}}
 
 
 class ExpenseItemShareSerializer(serializers.ModelSerializer):
-    """Serializer for a user's share of a specific item."""
-
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
 
     class Meta:
@@ -145,8 +123,6 @@ class ExpenseItemShareSerializer(serializers.ModelSerializer):
 
 
 class ExpenseItemSerializer(serializers.ModelSerializer):
-    """Serializer for an item within an itemized expense."""
-
     shares = ExpenseItemShareSerializer(many=True)
 
     class Meta:
@@ -155,12 +131,6 @@ class ExpenseItemSerializer(serializers.ModelSerializer):
 
 
 class ExpenseCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating a new expense (POST).
-
-    Only validates input. Creation is handled by ExpenseService.
-    """
-
     splits = ExpenseSplitSerializer(many=True, required=False)
     items = ExpenseItemSerializer(many=True, required=False)
 
@@ -178,7 +148,6 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         split_type = data.get("split_type")
-
         if split_type in ["equal", "exact"]:
             splits_data = self.initial_data.get("splits", [])
             if not splits_data:
@@ -188,7 +157,6 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         "Each split must have an 'amount' for equal/exact."
                     )
-
         elif split_type == "percentage":
             splits_data = self.initial_data.get("splits", [])
             if not splits_data:
@@ -204,18 +172,14 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Sum of percentages must be 100, got {total_percentage}."
                 )
-
         elif split_type == "itemized":
             items_data = self.initial_data.get("items", [])
             if not items_data:
                 raise serializers.ValidationError("items required for itemized")
-
         return data
 
 
 class ExpenseDetailSerializer(serializers.ModelSerializer):
-    """Serializer for expense details (GET/PATCH)."""
-
     splits = ExpenseSplitSerializer(many=True, read_only=True)
     items = ExpenseItemSerializer(many=True, read_only=True)
 
@@ -225,13 +189,52 @@ class ExpenseDetailSerializer(serializers.ModelSerializer):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. Activity, Balance, and Invite Serializers
+# 4. Settlement Serializers
+# ═══════════════════════════════════════════════════════════════════
+
+
+class SettlementSerializer(serializers.ModelSerializer):
+    from_user_phone = serializers.CharField(source="from_user.phone_number", read_only=True)
+    to_user_phone = serializers.CharField(source="to_user.phone_number", read_only=True)
+
+    class Meta:
+        model = Settlement
+        fields = (
+            "id",
+            "group",
+            "from_user",
+            "from_user_phone",
+            "to_user",
+            "to_user_phone",
+            "amount",
+            "status",
+            "reversed_by",
+            "created_by",
+            "confirmed_by",
+            "created_at",
+            "confirmed_at",
+        )
+        read_only_fields = (
+            "id",
+            "status",
+            "reversed_by",
+            "confirmed_by",
+            "created_at",
+            "confirmed_at",
+        )
+
+
+class CreateSettlementSerializer(serializers.Serializer):
+    to_user_id = serializers.IntegerField()
+    amount = serializers.IntegerField(min_value=1)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. Activity, Balance, and Invite Serializers
 # ═══════════════════════════════════════════════════════════════════
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
-    """Serializer for activity log entries."""
-
     user_phone = serializers.CharField(source="user.phone_number", read_only=True)
 
     class Meta:
@@ -240,8 +243,6 @@ class ActivityLogSerializer(serializers.ModelSerializer):
 
 
 class BalanceSerializer(serializers.Serializer):
-    """Serializer for net balance information."""
-
     phone_number = serializers.CharField()
     full_name = serializers.CharField()
     paid = serializers.IntegerField()
@@ -250,12 +251,8 @@ class BalanceSerializer(serializers.Serializer):
 
 
 class InviteCodeSerializer(serializers.Serializer):
-    """Serializer for generating a new invite code (no input)."""
-
     pass
 
 
 class JoinByInviteSerializer(serializers.Serializer):
-    """Serializer for joining a group via invitation code."""
-
     invite_code = serializers.CharField(max_length=8)

@@ -251,6 +251,9 @@ class ActivityLog(models.Model):
         ("expense_created", "Expense Created"),
         ("expense_confirmed", "Expense Confirmed"),
         ("expense_deleted", "Expense Deleted"),
+        ("settlement_created", "Settlement Created"),
+        ("settlement_confirmed", "Settlement Confirmed"),
+        ("settlement_reversed", "Settlement Reversed"),
     ]
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="activities")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -285,3 +288,50 @@ class Balance(models.Model):
 
     class Meta:
         unique_together = ("user", "group")
+
+
+class Settlement(models.Model):
+    """
+    Immutable settlement record between two users.
+
+    Once created, a settlement can only be confirmed or reversed.
+    Reversal creates a new settlement with a reference to the original.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("confirmed", "Confirmed"),
+        ("reversed", "Reversed"),
+    ]
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="settlements")
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments_made"
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments_received"
+    )
+    amount = models.PositiveBigIntegerField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    reversed_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reversed_settlement",
+        help_text="If this settlement is a reversal, points to the original.",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="created_settlements"
+    )
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="confirmed_settlements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]

@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 
 from apps.groups.models import Group, Membership
 from apps.groups.permissions import IsGroupMember, IsGroupAdmin, IsOwnerOrAdmin
-from apps.groups.services import GroupService, ExpenseService, BalanceService
+from apps.groups.services import GroupService, ExpenseService, BalanceService, SettlementService
 from .serializers import (
     GroupCreateSerializer,
     GroupSerializer,
@@ -14,6 +14,8 @@ from .serializers import (
     MembershipResponseSerializer,
     ExpenseCreateSerializer,
     ExpenseDetailSerializer,
+    SettlementSerializer,
+    CreateSettlementSerializer,
     ActivityLogSerializer,
     InviteCodeSerializer,
     JoinByInviteSerializer,
@@ -21,18 +23,16 @@ from .serializers import (
 
 User = get_user_model()
 
-# ── Service Instances ────────────────────────────────────────────
 group_service = GroupService()
 expense_service = ExpenseService()
 balance_service = BalanceService()
+settlement_service = SettlementService()
 
 
 # ── Group List / Create ─────────────────────────────────────────
 
 
 class GroupListCreateView(generics.ListCreateAPIView):
-    """List user's groups or create a new group (creator becomes owner/admin)."""
-
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
@@ -44,14 +44,12 @@ class GroupListCreateView(generics.ListCreateAPIView):
         return Group.objects.filter(memberships__user=self.request.user)
 
     def perform_create(self, serializer):
-        group = group_service.create_group(
+        self._created_group = group_service.create_group(
             name=serializer.validated_data["name"],
             description=serializer.validated_data.get("description", ""),
             budget_limit=serializer.validated_data.get("budget_limit", 0),
             created_by=self.request.user,
         )
-        # Store the group instance for the response
-        self._created_group = group
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -63,8 +61,6 @@ class GroupListCreateView(generics.ListCreateAPIView):
 
 
 class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update or delete a group (member/admin)."""
-
     permission_classes = [IsGroupMember]
     serializer_class = GroupSerializer
     queryset = Group.objects.all()
@@ -74,29 +70,23 @@ class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class GroupMembershipListView(generics.ListAPIView):
-    """List all members of a group."""
-
     permission_classes = [IsGroupMember]
     serializer_class = MembershipSerializer
 
     def get_queryset(self):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        return group.memberships.all()
+        return get_object_or_404(Group, pk=self.kwargs["pk"]).memberships.all()
 
 
 # ── Add Member ──────────────────────────────────────────────────
 
 
 class GroupMembershipAddView(generics.CreateAPIView):
-    """Add a member by phone number (admin only)."""
-
     permission_classes = [IsGroupAdmin]
     serializer_class = AddMemberSerializer
 
     def create(self, request, *args, **kwargs):
         input_serializer = self.get_serializer(data=request.data)
         input_serializer.is_valid(raise_exception=True)
-
         try:
             membership = group_service.add_member(
                 group_id=self.kwargs["pk"],
@@ -104,21 +94,15 @@ class GroupMembershipAddView(generics.CreateAPIView):
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        output_serializer = MembershipResponseSerializer(membership)
-        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(
+            MembershipResponseSerializer(membership).data, status=status.HTTP_201_CREATED
+        )
 
 
 # ── Remove Member / Leave Group ─────────────────────────────────
 
 
 class GroupMembershipRemoveView(generics.DestroyAPIView):
-    """
-    Remove a member from a group or leave the group.
-
-    Rules are enforced inside GroupService.remove_member().
-    """
-
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, *args, **kwargs):
@@ -132,9 +116,6 @@ class GroupMembershipRemoveView(generics.DestroyAPIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        # If the group was deleted because the owner was the only member,
-        # return a 200 with a message instead of 204
         if "detail" in result and "deleted" in result["detail"].lower():
             return Response(result, status=status.HTTP_200_OK)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -144,12 +125,6 @@ class GroupMembershipRemoveView(generics.DestroyAPIView):
 
 
 class GroupMembershipChangeRoleView(generics.UpdateAPIView):
-    """
-    Change a member's role (admin only).
-
-    Only PATCH is allowed. The owner's role cannot be changed.
-    """
-
     permission_classes = [IsGroupAdmin]
     serializer_class = MembershipSerializer
     queryset = Membership.objects.all()
@@ -161,7 +136,6 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
             return Response(
                 {"error": "role field is required."}, status=status.HTTP_400_BAD_REQUEST
             )
-
         try:
             membership = group_service.change_role(
                 group_id=self.kwargs["pk"],
@@ -173,21 +147,13 @@ class GroupMembershipChangeRoleView(generics.UpdateAPIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(membership)
-        return Response(serializer.data)
+        return Response(self.get_serializer(membership).data)
 
 
 # ── Transfer Ownership ──────────────────────────────────────────
 
 
 class TransferOwnershipView(generics.GenericAPIView):
-    """
-    Transfer group ownership to another admin.
-
-    Only the current owner can perform this action.
-    """
-
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = serializers.Serializer
 
@@ -195,7 +161,6 @@ class TransferOwnershipView(generics.GenericAPIView):
         new_owner_id = request.data.get("user_id")
         if not new_owner_id:
             return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             group = group_service.transfer_ownership(
                 group_id=self.kwargs["pk"], new_owner_id=new_owner_id, current_owner=request.user
@@ -204,7 +169,6 @@ class TransferOwnershipView(generics.GenericAPIView):
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
         return Response(
             {
                 "detail": "Ownership transferred successfully.",
@@ -219,8 +183,6 @@ class TransferOwnershipView(generics.GenericAPIView):
 
 
 class GroupInviteGenerateView(generics.GenericAPIView):
-    """Generate a new invitation code (admin only)."""
-
     permission_classes = [IsGroupAdmin]
     serializer_class = InviteCodeSerializer
 
@@ -233,21 +195,18 @@ class GroupInviteGenerateView(generics.GenericAPIView):
 
 
 class GroupJoinByInviteView(generics.GenericAPIView):
-    """Join a group using an invite code."""
-
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = JoinByInviteSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        invite_code = serializer.validated_data["invite_code"]
-
         try:
-            group_service.join_by_invite_code(invite_code=invite_code, user=request.user)
+            group_service.join_by_invite_code(
+                invite_code=serializer.validated_data["invite_code"], user=request.user
+            )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
         return Response(
             {"detail": "Successfully joined the group."}, status=status.HTTP_201_CREATED
         )
@@ -257,8 +216,6 @@ class GroupJoinByInviteView(generics.GenericAPIView):
 
 
 class ExpenseListCreateView(generics.ListCreateAPIView):
-    """List expenses of a group or create a new expense."""
-
     permission_classes = [IsGroupMember]
 
     def get_serializer_class(self):
@@ -267,8 +224,7 @@ class ExpenseListCreateView(generics.ListCreateAPIView):
         return ExpenseDetailSerializer
 
     def get_queryset(self):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        return group.expenses.all()
+        return get_object_or_404(Group, pk=self.kwargs["pk"]).expenses.all()
 
     def perform_create(self, serializer):
         self._created_expense = expense_service.create_expense(
@@ -282,62 +238,113 @@ class ExpenseListCreateView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         out_serializer = ExpenseDetailSerializer(self._created_expense)
-        headers = {}
-        return Response(out_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ExpenseDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update or delete an expense."""
-
     permission_classes = [IsOwnerOrAdmin]
     serializer_class = ExpenseDetailSerializer
     lookup_url_kwarg = "eid"
 
     def get_queryset(self):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        return group.expenses.all()
+        return get_object_or_404(Group, pk=self.kwargs["pk"]).expenses.all()
 
     def perform_update(self, serializer):
         instance = serializer.instance
         if (
             "is_confirmed" in serializer.validated_data
             and serializer.validated_data["is_confirmed"]
+            and not instance.is_confirmed
         ):
-            if not instance.is_confirmed:
-                expense_service.confirm_expense(
-                    expense_id=instance.pk, confirmed_by=self.request.user
-                )
-                # Refresh instance to reflect changes
-                instance.refresh_from_db()
-                return
+            expense_service.confirm_expense(expense_id=instance.pk, confirmed_by=self.request.user)
+            instance.refresh_from_db()
+            return
         serializer.save()
 
     def perform_destroy(self, instance):
         expense_service.delete_expense(expense_id=instance.pk, deleted_by=self.request.user)
 
 
+# ── Settlements ─────────────────────────────────────────────────
+
+
+class SettlementListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsGroupMember]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return CreateSettlementSerializer
+        return SettlementSerializer
+
+    def get_queryset(self):
+        return get_object_or_404(Group, pk=self.kwargs["pk"]).settlements.all()
+
+    def perform_create(self, serializer):
+        try:
+            self._settlement = settlement_service.create_settlement(
+                group_id=self.kwargs["pk"],
+                from_user=self.request.user,
+                to_user_id=serializer.validated_data["to_user_id"],
+                amount=serializer.validated_data["amount"],
+                created_by=self.request.user,
+            )
+        except ValueError as e:
+            # Convert service error to DRF validation error
+            raise serializers.ValidationError({"error": str(e)})
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(SettlementSerializer(self._settlement).data, status=status.HTTP_201_CREATED)
+
+
+class SettlementConfirmView(generics.GenericAPIView):
+    permission_classes = [IsGroupMember]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            settlement = settlement_service.confirm_settlement(
+                settlement_id=self.kwargs["sid"], confirmed_by=request.user
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(SettlementSerializer(settlement).data, status=status.HTTP_200_OK)
+
+
+class SettlementReverseView(generics.GenericAPIView):
+    permission_classes = [IsGroupMember]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            reversal = settlement_service.reverse_settlement(
+                settlement_id=self.kwargs["sid"], requested_by=request.user
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(SettlementSerializer(reversal).data, status=status.HTTP_201_CREATED)
+
+
 # ── Balances ────────────────────────────────────────────────────
 
 
 class BalanceView(generics.GenericAPIView):
-    """Calculate net balance for each group member."""
-
     permission_classes = [IsGroupMember]
 
     def get(self, request, *args, **kwargs):
-        balances = balance_service.get_balances(group_id=self.kwargs["pk"])
-        return Response(balances)
+        return Response(balance_service.get_balances(group_id=self.kwargs["pk"]))
 
 
 # ── Activity Log ────────────────────────────────────────────────
 
 
 class ActivityLogView(generics.ListAPIView):
-    """List activity logs for a group."""
-
     permission_classes = [IsGroupMember]
     serializer_class = ActivityLogSerializer
 
     def get_queryset(self):
-        group = get_object_or_404(Group, pk=self.kwargs["pk"])
-        return group.activities.all()
+        return get_object_or_404(Group, pk=self.kwargs["pk"]).activities.all()

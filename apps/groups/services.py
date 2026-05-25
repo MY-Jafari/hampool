@@ -14,6 +14,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from apps.groups.models import (
     Group,
@@ -22,7 +23,8 @@ from apps.groups.models import (
     ExpenseSplit,
     ExpenseItem,
     ExpenseItemShare,
-    Balance,  # <-- Added
+    Balance,
+    Settlement,
 )
 from apps.outbox.services import OutboxService
 from apps.outbox.tasks import dispatch_outbox_event
@@ -58,7 +60,6 @@ class GroupService:
             )
             Membership.objects.create(user=created_by, group=group, role="admin")
             group.generate_invite_code()
-            # Outbox event
             outbox_event = OutboxService.publish_event("GroupCreated", {"group_id": group.id})
         transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return group
@@ -80,7 +81,6 @@ class GroupService:
             )
             if not created:
                 raise ValueError("User is already a member.")
-            # Outbox event
             outbox_event = OutboxService.publish_event(
                 "MemberJoined", {"membership_id": membership.id}
             )
@@ -104,7 +104,6 @@ class GroupService:
             )
             if not created:
                 raise ValueError("You are already a member of this group.")
-            # Outbox event
             outbox_event = OutboxService.publish_event(
                 "MemberJoined", {"membership_id": membership.id}
             )
@@ -126,36 +125,29 @@ class GroupService:
             is_owner = user_to_remove == group.owner
             is_self = requested_by == user_to_remove
 
-            # ── Owner logic ─────────────────────────────────────
             if is_owner:
                 if is_self and group.memberships.count() == 1:
                     group.delete()
-                    # No need to publish an event for the deleted group here.
-                    return {"detail": ("You were the only member. " "The group has been deleted.")}
+                    return {"detail": "You were the only member. The group has been deleted."}
                 elif is_self:
                     earliest_admin = group.get_earliest_admin()
                     if earliest_admin:
                         group.owner = earliest_admin.user
                         group.save(update_fields=["owner"])
                         Membership.objects.get(group=group, user=requested_by).delete()
-                        # Outbox event for member left
                         outbox_event = OutboxService.publish_event(
                             "MemberLeft",
-                            {
-                                "group_id": group.id,
-                                "user_id": requested_by.id,
-                            },
+                            {"group_id": group.id, "user_id": requested_by.id},
                         )
                         transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
-                        return {"detail": ("Ownership transferred. " "You have left the group.")}
+                        return {"detail": "Ownership transferred. You have left the group."}
                     else:
                         raise ValueError(
-                            "Cannot leave without another admin. " "Delete the group instead."
+                            "Cannot leave without another admin. Delete the group instead."
                         )
                 else:
                     raise PermissionError("The group owner cannot be removed by others.")
 
-            # ── Non‑owner removal ──────────────────────────────
             is_admin = Membership.objects.filter(
                 user=requested_by, group=group, role="admin"
             ).exists()
@@ -163,12 +155,10 @@ class GroupService:
                 raise PermissionError("Permission denied.")
 
             Membership.objects.get(group=group, user=user_to_remove).delete()
-            # Outbox event for member left
             outbox_event = OutboxService.publish_event(
                 "MemberLeft",
                 {"group_id": group.id, "user_id": user_to_remove.id},
             )
-            # Promote the earliest member if no admins remain
             if not group.memberships.filter(role="admin").exists():
                 first_member = group.memberships.order_by("joined_at").first()
                 if first_member:
@@ -179,12 +169,7 @@ class GroupService:
         return {"detail": "Member removed."}
 
     def change_role(
-        self,
-        *,
-        group_id: int,
-        user_id: int,
-        new_role: str,
-        requested_by: User,
+        self, *, group_id: int, user_id: int, new_role: str, requested_by: User
     ) -> Membership:
         """
         Change a member's role (admin ↔ member).
@@ -206,7 +191,6 @@ class GroupService:
             membership.role = new_role
             membership.save()
 
-            # Promote if no admins left
             if not group.memberships.filter(role="admin").exists():
                 first_member = group.memberships.order_by("joined_at").first()
                 if first_member:
@@ -264,23 +248,47 @@ class ExpenseService:
             group = get_object_or_404(Group, pk=group_id)
             splits_data = validated_data.pop("splits", [])
             items_data = validated_data.pop("items", [])
+            total_amount = validated_data.get("total_amount", 0)
 
             expense = Expense.objects.create(group=group, paid_by=paid_by, **validated_data)
 
             split_type = expense.split_type
-            if split_type in ("equal", "exact"):
+            if split_type == "equal":
+                users = [s["user"] for s in splits_data]
+                num = len(users)
+                if num == 0:
+                    raise ValueError("Equal split requires at least one user.")
+                base = total_amount // num
+                rem = total_amount % num
+                splits = []
+                for i, u in enumerate(users):
+                    # Only add the remainder to the last user when rem > 0
+                    amt = base + (1 if (rem > 0 and i == num - 1) else 0)
+                    splits.append(ExpenseSplit(expense=expense, user=u, amount=amt))
+                ExpenseSplit.objects.bulk_create(splits)
+                # Keep total_amount as originally entered by the user — do NOT
+                # overwrite it with sum(splits), because that can introduce a
+                # rounding discrepancy when rem == 0.
+                # total_amount is already set correctly on the expense.
+            elif split_type == "exact":
                 for s in splits_data:
                     ExpenseSplit.objects.create(
                         expense=expense,
                         user_id=s["user"].pk,
                         amount=s["amount"],
                     )
+                # Recompute total from splits
+                total = expense.splits.aggregate(Sum("amount"))["amount__sum"] or 0
+                expense.total_amount = total
+                expense.save(update_fields=["total_amount"])
             elif split_type == "percentage":
-                total = expense.total_amount
                 for s in splits_data:
                     user = s["user"]
-                    amount = int(total * s["percentage"] / 100)
+                    amount = int(total_amount * s["percentage"] / 100)
                     ExpenseSplit.objects.create(expense=expense, user_id=user.pk, amount=amount)
+                total = expense.splits.aggregate(Sum("amount"))["amount__sum"] or 0
+                expense.total_amount = total
+                expense.save(update_fields=["total_amount"])
             elif split_type == "itemized":
                 for item_data in items_data:
                     shares = item_data.pop("shares")
@@ -291,11 +299,14 @@ class ExpenseService:
                             user_id=share["user"].pk,
                             amount=share["amount"],
                         )
+                # total_amount for itemized can be sum of items if not provided
+                if not total_amount:
+                    total = sum(item.total_amount for item in expense.items.all())
+                    expense.total_amount = total
+                    expense.save(update_fields=["total_amount"])
 
-            # Update balance projections atomically
             BalanceService.update_balance_for_expense(expense)
 
-            # Outbox event
             outbox_event = OutboxService.publish_event("ExpenseCreated", {"expense_id": expense.id})
         transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return expense
@@ -313,16 +324,11 @@ class ExpenseService:
             expense.is_confirmed = True
             expense.save()
 
-            # Balance projections change because the expense is now confirmed
             BalanceService.update_balance_for_expense(expense)
 
-            # Outbox event
             outbox_event = OutboxService.publish_event(
                 "ExpenseConfirmed",
-                {
-                    "expense_id": expense.id,
-                    "confirmed_by_id": confirmed_by.id,
-                },
+                {"expense_id": expense.id, "confirmed_by_id": confirmed_by.id},
             )
         transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
         return expense
@@ -331,23 +337,16 @@ class ExpenseService:
         """Delete an expense (and its splits/items via CASCADE) and update balances."""
         with transaction.atomic():
             expense = get_object_or_404(Expense, pk=expense_id)
-            # Capture necessary data before deletion
-            event_data = {
-                "expense_id": expense.id,
-                "deleted_by_id": deleted_by.id,
-            }
-            # Capture affected users for balance update
+            event_data = {"expense_id": expense.id, "deleted_by_id": deleted_by.id}
             affected_users = set()
             affected_users.add(expense.paid_by)
             for split in expense.splits.all():
                 affected_users.add(split.user)
             expense.delete()
 
-            # Recalculate balances for affected users
             for user in affected_users:
                 BalanceService.recalculate_balance_for_user(user, expense.group)
 
-            # Outbox event after deletion so that we still have the ID
             outbox_event = OutboxService.publish_event("ExpenseDeleted", event_data)
         transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
 
@@ -363,43 +362,22 @@ class BalanceService:
 
     def get_balances(self, group_id: int) -> list[dict]:
         """
-        Return a list of net balances for every member of the group.
+        Return a list of net balances for every member of the group
+        directly from the Balance projection table.
 
-        Each dictionary contains the user's phone number, full name,
-        total paid, total owed, and net balance (positive = creditor).
+        The Balance table is the source of truth for net amounts
+        after considering all confirmed expenses and settlements.
         """
         group = get_object_or_404(Group, pk=group_id)
-        members = group.memberships.select_related("user").all()
-        balances = []
-
-        for m in members:
-            user = m.user
-            paid = (
-                Expense.objects.filter(group=group, paid_by=user, is_confirmed=True).aggregate(
-                    total=Sum("total_amount")
-                )["total"]
-                or 0
-            )
-            owed = (
-                ExpenseSplit.objects.filter(
-                    expense__group=group,
-                    expense__is_confirmed=True,
-                    user=user,
-                    settled=False,
-                ).aggregate(total=Sum("amount"))["total"]
-                or 0
-            )
-            balances.append(
-                {
-                    "phone_number": user.phone_number,
-                    "full_name": user.full_name or user.phone_number,
-                    "paid": paid,
-                    "owed": owed,
-                    "net": paid - owed,
-                }
-            )
-
-        return balances
+        balance_qs = Balance.objects.filter(group=group).select_related("user")
+        return [
+            {
+                "phone_number": b.user.phone_number,
+                "full_name": b.user.full_name or b.user.phone_number,
+                "net": b.amount,
+            }
+            for b in balance_qs
+        ]
 
     @staticmethod
     def update_balance_for_expense(expense: Expense) -> None:
@@ -419,21 +397,206 @@ class BalanceService:
     @staticmethod
     def recalculate_balance_for_user(user: User, group: Group) -> None:
         """
-        Lock the balance row for the given user and group, then
-        recalculate it from confirmed expenses and unsettled splits.
+        Recalculate user's net balance from confirmed expenses
+        and confirmed settlements.
+
+        Formula:
+            balance = (amount_paid_for_others - own_share_owed)
+                    + (settlements_received - settlements_sent)
+
+        Notes:
+        - `paid` uses Expense.total_amount directly (the user-entered value),
+          NOT re-summed from splits, to avoid rounding drift.
+        - `owed` counts ALL split rows for the user (settled or not) so that
+          settling a split row (settled=True) removes it from owed and the
+          ExpenseSplit.settled flag correctly reduces the debt.
+        - Settlements affect balance directly: sent reduces debt, received
+          increases credit.
         """
-        balance, _ = Balance.objects.select_for_update().get_or_create(user=user, group=group)
+
+        balance, _ = Balance.objects.select_for_update().get_or_create(
+            user=user,
+            group=group,
+            defaults={"amount": 0},
+        )
+
+        # Total amount this user paid on behalf of the group
         paid = (
-            Expense.objects.filter(group=group, paid_by=user, is_confirmed=True).aggregate(
+            Expense.objects.filter(
+                group=group,
+                paid_by=user,
+                is_confirmed=True,
+            ).aggregate(
                 total=Sum("total_amount")
             )["total"]
             or 0
         )
+
+        # This user's share of group expenses (only unsettled rows count as debt)
         owed = (
             ExpenseSplit.objects.filter(
-                expense__group=group, expense__is_confirmed=True, user=user, settled=False
+                expense__group=group,
+                expense__is_confirmed=True,
+                user=user,
+                settled=False,
             ).aggregate(total=Sum("amount"))["total"]
             or 0
         )
-        balance.amount = paid - owed
-        balance.save()
+
+        # Settlements this user sent (they paid someone → reduces their debt)
+        sent = (
+            Settlement.objects.filter(
+                group=group,
+                from_user=user,
+                status="confirmed",
+            ).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+
+        # Settlements this user received (someone paid them → reduces their credit)
+        received = (
+            Settlement.objects.filter(
+                group=group,
+                to_user=user,
+                status="confirmed",
+            ).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+
+        # Net balance:
+        #   positive → user is owed money (creditor)
+        #   negative → user owes money  (debtor)
+        #
+        # paid:     user fronted this much for the group      (+)
+        # owed:     user's own share still outstanding        (-)
+        # sent:     user has already paid back this much      (+) reduces debt
+        # received: user has already received back this much  (-) reduces credit
+        balance.amount = (paid - owed) + (sent - received)
+
+        balance.save(update_fields=["amount"])
+
+
+class SettlementService:
+    """
+    Handles settlement creation, confirmation, and reversal.
+
+    All operations are atomic and use the Outbox pattern for event
+    delivery.  Balances are updated synchronously with row‑level locking.
+    """
+
+    def create_settlement(
+        self, *, group_id: int, from_user: User, to_user_id: int, amount: int, created_by: User
+    ) -> Settlement:
+        """
+        Create a new pending settlement.
+
+        Only a debtor (user with negative net balance) can create a
+        settlement to pay off their debt.  The receiving user must
+        be a creditor (positive net balance).
+        """
+        if from_user.pk == to_user_id:
+            raise ValueError("You cannot create a settlement with yourself.")
+        with transaction.atomic():
+            group = get_object_or_404(Group, pk=group_id)
+            to_user = get_object_or_404(User, pk=to_user_id)
+
+            # from_user must be a debtor (owes money)
+            from_balance, _ = Balance.objects.select_for_update().get_or_create(
+                user=from_user, group=group, defaults={"amount": 0}
+            )
+            if from_balance.amount >= 0:
+                raise ValueError(
+                    "You can only create a settlement if you owe money (net negative)."
+                )
+
+            # to_user should be a creditor (is owed money)
+            to_balance, _ = Balance.objects.select_for_update().get_or_create(
+                user=to_user, group=group, defaults={"amount": 0}
+            )
+            if to_balance.amount <= 0:
+                raise ValueError("The receiving user is not owed any money.")
+
+            settlement = Settlement.objects.create(
+                group=group,
+                from_user=from_user,
+                to_user=to_user,
+                amount=amount,
+                created_by=created_by,
+            )
+            outbox_event = OutboxService.publish_event(
+                "SettlementCreated", {"settlement_id": settlement.id}
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
+        return settlement
+
+    def confirm_settlement(self, *, settlement_id: int, confirmed_by: User) -> Settlement:
+        """
+        Confirm a pending settlement (only the receiving user can confirm).
+        Updates balances accordingly.
+        """
+        with transaction.atomic():
+            settlement = get_object_or_404(Settlement, pk=settlement_id, status="pending")
+            if confirmed_by != settlement.to_user:
+                raise PermissionError("Only the receiving user can confirm.")
+
+            settlement.status = "confirmed"
+            settlement.confirmed_by = confirmed_by
+            settlement.confirmed_at = timezone.now()
+            settlement.save()
+
+            # Update balances for both involved users
+            BalanceService.recalculate_balance_for_user(settlement.from_user, settlement.group)
+            BalanceService.recalculate_balance_for_user(settlement.to_user, settlement.group)
+
+            outbox_event = OutboxService.publish_event(
+                "SettlementConfirmed",
+                {"settlement_id": settlement.id, "confirmed_by_id": confirmed_by.id},
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_event.pk))
+        return settlement
+
+    def reverse_settlement(self, *, settlement_id: int, requested_by: User) -> Settlement:
+        """
+        Reverse a confirmed settlement. Only the payer can reverse.
+        Creates a reversal settlement (auto‑confirmed).
+        """
+        with transaction.atomic():
+            original = get_object_or_404(Settlement, pk=settlement_id, status="confirmed")
+            if requested_by != original.from_user:
+                raise PermissionError("Only the payer can reverse a settlement.")
+
+            original.status = "reversed"
+            original.save()
+
+            # Create reversal (auto‑confirmed)
+            reversal = Settlement.objects.create(
+                group=original.group,
+                from_user=original.from_user,
+                to_user=original.to_user,
+                amount=original.amount,
+                status="confirmed",
+                reversed_by=original,
+                created_by=requested_by,
+                confirmed_by=requested_by,
+                confirmed_at=timezone.now(),
+            )
+
+            # Update balances for both involved users
+            BalanceService.recalculate_balance_for_user(original.from_user, original.group)
+            BalanceService.recalculate_balance_for_user(original.to_user, original.group)
+
+            outbox_rev = OutboxService.publish_event(
+                "SettlementReversed",
+                {"settlement_id": original.id, "reversed_by_id": requested_by.id},
+            )
+            outbox_new = OutboxService.publish_event(
+                "SettlementConfirmed",
+                {"settlement_id": reversal.id, "confirmed_by_id": requested_by.id},
+            )
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_rev.pk))
+        transaction.on_commit(lambda: dispatch_outbox_event.delay(outbox_new.pk))
+        return reversal
