@@ -1,43 +1,39 @@
-# Django
+# =============================================================================
+# HamPool Project - Complete .gitignore
+# =============================================================================
+
+# 1. Django Core & Databases
+# -----------------------------------------------------------------------------
 *.log
 *.pot
-*.pyc
-__pycache__/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-/media
-/static
+/media/
+/static/
+staticfiles/
 
-# Environment variables
+# 2. Database Migrations (IMPORTANT: Keep migration files, ignore only caches)
+# -----------------------------------------------------------------------------
+**/migrations/__pycache__/
+**/migrations/*.pyc
+
+# 3. Security & Environment Variables (Never commit secrets)
+# -----------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
 
-# Docker
-docker-compose.override.yml
-
-# IDE & Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Python
+# 4. Python & Virtual Environments
+# -----------------------------------------------------------------------------
 *.py[cod]
 *$py.class
 *.so
-*.egg-info/
-dist/
-build/
-.eggs/
-*.egg
 .Python
 env/
 venv/
 .venv/
+ENV/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -49,27 +45,42 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-
-# Celery
-celerybeat-schedule
-celerybeat.pid
-
-# MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Jupyter Notebook
+# 5. Build & Distribution
+# -----------------------------------------------------------------------------
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# 6. Celery & Task Queues
+# -----------------------------------------------------------------------------
+celerybeat-schedule
+celerybeat.pid
+
+# 7. Docker
+# -----------------------------------------------------------------------------
+docker-compose.override.yml
+.dockerprod
+
+# 8. IDEs, Editors & OS Specific
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 9. Jupyter Notebook
+# -----------------------------------------------------------------------------
 .ipynb_checkpoints
 
-# pyenv
+# 10. pyenv (Python Version Management)
+# -----------------------------------------------------------------------------
 .python-version
-
-# Backup files
-*.bak
-*.backup
-*_backup/
-*/migrations/*
-/migrations
-/migrations/*
-apps/groups/migrations/0003_alter_activitylog_action_settlement.py
