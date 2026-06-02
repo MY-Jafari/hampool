@@ -6,12 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN rm -rf /etc/apt/sources.list /etc/apt/sources.list.d/* && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian bookworm main" > /etc/apt/sources.list && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian-security bookworm-security main" >> /etc/apt/sources.list
-
-# Install system build dependencies
+# Install only the tools needed to build Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
@@ -30,12 +25,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN rm -rf /etc/apt/sources.list /etc/apt/sources.list.d/* && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian bookworm main" > /etc/apt/sources.list && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb [trusted=yes check-valid-until=no] http://mirror-linux.runflare.com/debian-security bookworm-security main" >> /etc/apt/sources.list
-
-# No runtime system packages needed for SQLite currently
+# Install runtime libraries required by WeasyPrint (Phase 6)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # WeasyPrint dependencies
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    libffi-dev \
+    libcairo2 \
+    libpango1.0-dev \
+    # Clean up
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from the builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

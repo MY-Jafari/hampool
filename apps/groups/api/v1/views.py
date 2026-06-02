@@ -37,6 +37,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status, serializers as drf_serializers
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 from apps.groups.models import Group, Membership
 from apps.groups.permissions import IsGroupMember, IsGroupAdmin, IsOwnerOrAdmin
@@ -568,6 +570,26 @@ class ApplyOptimizedSettlementsView(generics.GenericAPIView):
         return Response(
             SettlementSerializer(settlements, many=True).data,
             status=status.HTTP_201_CREATED,
+        )
+
+
+# ── Manual Report Request ───────────────────────────────────────
+
+
+class RequestReportView(generics.GenericAPIView):
+    """Request an on-demand weekly report for the group."""
+
+    permission_classes = [IsGroupMember]
+    serializer_class = drf_serializers.Serializer
+
+    @method_decorator(ratelimit(key="user", rate="3/h", method="POST", block=True))
+    def post(self, request, *args, **kwargs):
+        from apps.reports.tasks import generate_group_report
+
+        generate_group_report.delay(self.kwargs["pk"])
+        return Response(
+            {"detail": "Report generation started. You will receive an email shortly."},
+            status=status.HTTP_202_ACCEPTED,
         )
 
 

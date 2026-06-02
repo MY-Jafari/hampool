@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weekly Report - {{ group.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .summary {
+            margin: 20px 0;
+        }
+        .budget-bar {
+            width: 100%;
+            background-color: #eee;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .budget-fill {
+            height: 20px;
+            border-radius: 5px;
+            background-color: #27ae60;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .charts {
+            margin: 20px 0;
+        }
+        .chart {
+            margin-bottom: 20px;
+        }
+        .chart img {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Weekly Report: {{ group.name }}</h1>
+    <p>Generated on {{ now|date:"Y-m-d" }}</p>
+
+    <div class="summary">
+        <h2>Budget Status</h2>
+        <p><strong>Total Spent:</strong> {{ total_spent }} T</p>
+        {% if budget %}
+        <p><strong>Budget:</strong> {{ budget }} T</p>
+        <p><strong>Remaining:</strong> {{ remaining }} T</p>
+        <div class="budget-bar">
+            <div class="budget-fill" style="width: {{ percent_used|floatformat:1 }}%;"></div>
+        </div>
+        <p>{{ percent_used|floatformat:1 }}% of budget used</p>
+        {% else %}
+        <p>No budget limit set for this group.</p>
+        {% endif %}
+    </div>
+
+    <div class="charts">
+        {% if pie_chart_base64 %}
+        <div class="chart">
+            <h3>Expense Categories</h3>
+            <img src="data:image/png;base64,{{ pie_chart_base64 }}" alt="Pie Chart">
+        </div>
+        {% endif %}
+
+        {% if bar_chart_base64 %}
+        <div class="chart">
+            <h3>Daily Expenses (Last 7 Days)</h3>
+            <img src="data:image/png;base64,{{ bar_chart_base64 }}" alt="Bar Chart">
+        </div>
+        {% endif %}
+    </div>
+
+    <h2>Balances</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Member</th>
+                <th>Net Balance (T)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in balances %}
+            <tr>
+                <td>{{ b.user.full_name|default:b.user.phone_number }}</td>
+                <td>{{ b.amount }}</td>
+                <td>
+                    {% if b.amount > 0 %}Creditor
+                    {% elif b.amount < 0 %}Debtor
+                    {% else %}Settled{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">No balance data available.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

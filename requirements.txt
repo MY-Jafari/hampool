@@ -33,3 +33,7 @@ flake8
 pytest
 pytest-django
 pytest-cov
+
+#pdf & Chart
+weasyprint
+matplotlib

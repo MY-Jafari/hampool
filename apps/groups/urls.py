@@ -35,7 +35,6 @@ urlpatterns = [
         views.SettlementReverseView.as_view(),
         name="settlement-reverse",
     ),
-    # Phase 5 – Optimization
     path(
         "<int:pk>/optimize-settlements/",
         views.OptimizeSettlementsView.as_view(),
@@ -48,4 +47,5 @@ urlpatterns = [
     ),
     path("<int:pk>/balances/", views.BalanceView.as_view(), name="group-balances"),
     path("<int:pk>/activities/", views.ActivityLogView.as_view(), name="group-activities"),
+    path("<int:pk>/report/", views.RequestReportView.as_view(), name="group-report"),
 ]
