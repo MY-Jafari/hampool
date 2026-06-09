@@ -1,16 +1,25 @@
 """
-ASGI config for core project.
+ASGI configuration for the HamPool project.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
+Uses the ``ProtocolTypeRouter`` to dispatch HTTP requests to the
+standard Django ASGI application and WebSocket connections to the
+Channels URL router defined in ``apps.groups.routing``.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
+This is the entry point for both the Uvicorn and Daphne ASGI servers.
 """
 
 import os
-
 from django.core.asgi import get_asgi_application
+from channels.routing import ProtocolTypeRouter, URLRouter
+from apps.groups.routing import websocket_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
-application = get_asgi_application()
+django_application = get_asgi_application()
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_application,
+        "websocket": URLRouter(websocket_urlpatterns),
+    }
+)

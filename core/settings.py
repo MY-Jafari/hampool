@@ -199,5 +199,22 @@ LOGGING = {
     },
 }
 
+# Channels
+ASGI_APPLICATION = "core.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                (
+                    config("REDIS_HOST", default="redis"),
+                    config("REDIS_PORT", default=6379, cast=int),
+                )
+            ],
+        },
+    },
+}
+
 # Custom User Model
 AUTH_USER_MODEL = "accounts.User"
