@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.groups",
     "apps.outbox",
     "apps.reports",
+    "apps.ai",
 ]
 
 MIDDLEWARE = [
@@ -51,6 +52,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "core.urls"
+
+# ai
+GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+GEMINI_AI_MODEL = "gemini-2.5-flash"
 
 TEMPLATES = [
     {

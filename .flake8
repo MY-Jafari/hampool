@@ -6,4 +6,5 @@ exclude =
     .venv,
     migrations,
     settings.py
+    prompts.py
 ignore = E203, W503

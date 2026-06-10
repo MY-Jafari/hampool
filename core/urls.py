@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/v1/groups/", include("apps.groups.urls")),
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger-ui"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
+    path("api/v1/", include("apps.ai.urls")),
 ]
 
 # Serve static and media files in development only

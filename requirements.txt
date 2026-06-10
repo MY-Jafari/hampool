@@ -46,3 +46,6 @@ redis==5.0.1
 
 #QR-Code
 qrcode[pil]
+
+#ai
+google-generativeai
