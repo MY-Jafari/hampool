@@ -48,4 +48,5 @@ urlpatterns = [
     path("<int:pk>/balances/", views.BalanceView.as_view(), name="group-balances"),
     path("<int:pk>/activities/", views.ActivityLogView.as_view(), name="group-activities"),
     path("<int:pk>/report/", views.RequestReportView.as_view(), name="group-report"),
+    path("<int:pk>/qr-code/", views.GroupQRCodeView.as_view(), name="group-qr-code"),
 ]

@@ -67,6 +67,9 @@ from .serializers import (
     JoinByInviteSerializer,
     EmptySerializer,
 )
+import qrcode
+from io import BytesIO
+from django.http import HttpResponse
 
 User = get_user_model()
 
@@ -630,6 +633,46 @@ class BalanceView(generics.GenericAPIView):
         balances = balance_service.get_balances(group_id=self.kwargs["pk"])
         serializer = self.get_serializer(balances, many=True)
         return Response(serializer.data)
+
+
+# ── QR Code ────────────────────────────────────────────────────
+
+
+class GroupQRCodeView(generics.GenericAPIView):
+    """
+    Return a QR code image (PNG) that encodes the group's invitation URL.
+
+    GET /api/v1/groups/{id}/qr-code/
+
+    The QR code contains a link that can be used to join the group
+    (e.g., ``https://yourapp.com/join/{invite_code}/``).  Currently
+    the link points directly to the API join endpoint.
+    """
+
+    permission_classes = [IsGroupMember]
+
+    def get(self, request, *args, **kwargs):
+        group = get_object_or_404(Group, pk=self.kwargs["pk"])
+        invite_code = group.invite_code
+        if not invite_code:
+            # Generate one if missing (admin can regenerate later)
+            group.generate_invite_code()
+            invite_code = group.invite_code
+
+        # Build the invitation URL
+        join_url = f"http://localhost:8000/api/v1/groups/join/?code={invite_code}"
+
+        # Generate QR code image in memory
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(join_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        return HttpResponse(buf.read(), content_type="image/png")
 
 
 class ActivityLogView(generics.ListAPIView):
