@@ -753,7 +753,11 @@ class SettlementService:
             from_balance = Balance.objects.select_for_update().get(user=from_user, group=group)
             if from_balance.amount >= 0:
                 raise ValueError("Settlement can only be created by a debtor (net < 0).")
-
+            if amount > abs(from_balance.amount):
+                raise ValueError(
+                    f"Settlement amount ({amount}) exceeds the outstanding debt "
+                    f"({abs(from_balance.amount)})."
+                )
             to_balance = Balance.objects.select_for_update().get(user=to_user, group=group)
             if to_balance.amount <= 0:
                 raise ValueError("The receiving user is not owed any money (net ≤ 0).")
@@ -814,7 +818,15 @@ class SettlementService:
         ``received`` to increase again and left both balances unchanged.
         """
         with transaction.atomic():
-            settlement = get_object_or_404(Settlement, pk=settlement_id, status="confirmed")
+            try:
+                settlement = Settlement.objects.get(pk=settlement_id)
+            except Settlement.DoesNotExist:
+                raise ValueError(f"Settlement {settlement_id} not found.")
+            if settlement.status != "confirmed":
+                raise ValueError(
+                    f"Cannot reverse a settlement with status '{settlement.status}'. "
+                    "Only confirmed settlements can be reversed."
+                )
             if requested_by not in (settlement.from_user, settlement.to_user):
                 raise PermissionError("Only the parties involved can reverse a settlement.")
 
