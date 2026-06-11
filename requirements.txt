@@ -12,6 +12,7 @@ pyotp
 
 # deployment module
 gunicorn>=21,<23
+psycopg2-binary>=2.9            
 
 # email 
 django-mail-templated
