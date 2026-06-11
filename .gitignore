@@ -12,7 +12,7 @@ db.sqlite3-journal
 /media/
 /static/
 staticfiles/
-
+*.pyc
 # 2. Database Migrations (IMPORTANT: Keep migration files, ignore only caches)
 # -----------------------------------------------------------------------------
 **/migrations/__pycache__/
