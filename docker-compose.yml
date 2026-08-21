@@ -1,15 +1,53 @@
-version: '3.8'
+# ═══════════════════════════════════════════════════════════════
+# HamPool – Docker Compose (Development / Local)
+#
+# Services:
+#   db        – PostgreSQL 16 (primary database)
+#   redis     – Redis 7 (cache + Celery broker/backend)
+#   django    – Backend API (Django + Channels, Uvicorn ASGI)
+#   celery_worker – Celery worker (async tasks)
+#   celery_beat   – Celery beat (scheduled tasks)
+#   flower    – Celery monitoring dashboard (http://localhost:5555)
+#   nginx     – Reverse proxy: serves frontend + routes API/WS/media
+#               (http://localhost:80)
+# ═══════════════════════════════════════════════════════════════
 
 services:
+  # ── Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: hampool_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hampool}
+      POSTGRES_USER: ${POSTGRES_USER:-hampool_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hampool_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hampool_user} -d ${POSTGRES_DB:-hampool}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis (cache + Celery broker) ─────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: hampool_redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
+  # ── Django Backend (ASGI) ─────────────────────────────────────
   django:
     build: .
     container_name: hampool_django
@@ -23,9 +61,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
+  # ── Celery Worker ─────────────────────────────────────────────
   celery_worker:
     build: .
     container_name: hampool_celery_worker
@@ -35,9 +77,13 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
+  # ── Celery Beat (scheduler) ───────────────────────────────────
   celery_beat:
     build: .
     container_name: hampool_celery_beat
@@ -47,10 +93,43 @@ services:
     env_file:
       - .env
     depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Flower (Celery monitoring) ────────────────────────────────
+  flower:
+    build: .
+    container_name: hampool_flower
+    command: celery -A core flower --port=5555 --basic-auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    depends_on:
       - redis
+      - celery_worker
+    restart: unless-stopped
+
+  # ── Nginx (reverse proxy + frontend) ──────────────────────────
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: hampool_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/static:ro
+      - media_volume:/media:ro
+    depends_on:
+      - django
     restart: unless-stopped
 
 volumes:
+  postgres_data:
   redis_data:
   static_volume:
   media_volume:

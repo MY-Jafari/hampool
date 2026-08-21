@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark, neutral, layered surfaces (SaaS dark theme) */
+    --background: 216 15% 7%;
+    --foreground: 210 20% 94%;
+    --card: 217 15% 10%;
+    --card-foreground: 210 20% 94%;
+    --popover: 217 17% 9%;
+    --popover-foreground: 210 20% 94%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 216 15% 7%;
+    --secondary: 217 12% 16%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 217 12% 16%;
+    --muted-foreground: 215 10% 62%;
+    --accent: 217 12% 18%;
+    --accent-foreground: 210 20% 94%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 217 12% 17%;
+    --input: 217 12% 19%;
+    --ring: 160 84% 39%;
+    --ai: 258 90% 66%;
+    --ai-foreground: 210 20% 98%;
+    --success: 160 84% 45%;
+    --danger: 0 72% 55%;
+    --warning: 38 92% 55%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Vazirmatn', system-ui, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle, dark scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 8px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}

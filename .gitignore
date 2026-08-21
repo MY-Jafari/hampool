@@ -84,3 +84,7 @@ Thumbs.db
 # 10. pyenv (Python Version Management)
 # -----------------------------------------------------------------------------
 .python-version
+
+# 11. Freebuff agent worktrees (never commit these)
+# -----------------------------------------------------------------------------
+.freebuff/
