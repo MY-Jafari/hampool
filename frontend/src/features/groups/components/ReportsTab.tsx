@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDown, Loader2, PieChart as PieIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { FileDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import {
   Bar,
   BarChart,
@@ -21,10 +24,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { listExpenses, requestReport } from '@/features/groups/api';
 import { toastError } from '@/shared/lib/errors';
-import { formatNumber, formatToman, splitTypeLabel } from '@/shared/lib/formats';
+import { formatDate, formatMoney, formatNumber } from '@/shared/lib/format';
 import type { Group, Membership } from '@/shared/types/api';
 
-const PALETTE = ['#10B981', '#8B5CF6', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#F97316'];
+const CHART_PALETTE = [
+  '#10B981', // Emerald
+  '#8B5CF6', // Purple
+  '#3B82F6', // Blue
+  '#F59E0B', // Amber
+  '#EC4899', // Pink
+  '#14B8A6', // Teal
+  '#F97316', // Orange
+];
 
 interface ReportsTabProps {
   group: Group;
@@ -32,6 +43,8 @@ interface ReportsTabProps {
 }
 
 export function ReportsTab({ group, members }: ReportsTabProps) {
+  const { t, i18n } = useTranslation(['groups', 'common']);
+  const isEn = i18n.language?.startsWith('en');
   const queryClient = useQueryClient();
 
   const expensesQuery = useQuery({
@@ -42,114 +55,189 @@ export function ReportsTab({ group, members }: ReportsTabProps) {
   const reportMutation = useMutation({
     mutationFn: () => requestReport(group.id),
     onSuccess: () => {
-      toast.success('تولید گزارش شروع شد؛ به ایمیل شما ارسال می‌شود. 📧');
+      toast.success(t('reports.pdfSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['group-activities', group.id] });
     },
-    onError: (err) => toastError(err),
+    onError: (err: unknown) => {
+      if (axios.isAxiosError(err) && (err.response?.status === 403 || err.response?.status === 429)) {
+        toast.error(t('reports.pdfRateLimit'));
+      } else {
+        toastError(err);
+      }
+    },
   });
 
-  if (expensesQuery.isLoading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Skeleton className="h-72" />
-        <Skeleton className="h-72" />
-      </div>
-    );
-  }
+  const confirmedExpenses = useMemo(() => {
+    return (expensesQuery.data ?? []).filter((e) => e.is_confirmed);
+  }, [expensesQuery.data]);
 
-  if (expensesQuery.isError) {
-    return <ErrorState error={expensesQuery.error} onRetry={() => void expensesQuery.refetch()} />;
-  }
-
-  const confirmed = (expensesQuery.data ?? []).filter((e) => e.is_confirmed);
-
-  if (confirmed.length === 0) {
-    return (
-      <EmptyState
-        icon={PieIcon}
-        title="داده‌ای برای گزارش نیست"
-        description="پس از تایید اولین هزینه، نمودارها و گزارش اینجا نمایش داده می‌شوند."
-        action={
-          <Button variant="outline" onClick={() => reportMutation.mutate()} disabled={reportMutation.isPending}>
-            {reportMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
-            درخواست گزارش PDF
-          </Button>
-        }
-      />
-    );
-  }
-
-  // Daily totals (last 7 days)
-  const dailyData = (() => {
+  // ── 7-Day Expense Trend ──────────────────────────────────────────
+  const dailyData = useMemo(() => {
     const days: { key: string; label: string; total: number }[] = [];
     const now = new Date();
     for (let i = 6; i >= 0; i -= 1) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
       d.setHours(0, 0, 0, 0);
-      days.push({ key: d.toISOString().slice(0, 10), label: d.toLocaleDateString('fa-IR', { weekday: 'short' }), total: 0 });
+      const isoDay = d.toISOString().slice(0, 10);
+      days.push({
+        key: isoDay,
+        label: formatDate(d, isEn ? 'en' : 'fa', { weekday: 'short' }),
+        total: 0,
+      });
     }
-    for (const e of confirmed) {
-      const day = new Date(e.date);
-      day.setHours(0, 0, 0, 0);
-      const key = day.toISOString().slice(0, 10);
-      const bucket = days.find((d) => d.key === key);
-      if (bucket) bucket.total += e.total_amount;
+
+    for (const e of confirmedExpenses) {
+      const d = new Date(e.date);
+      d.setHours(0, 0, 0, 0);
+      const key = d.toISOString().slice(0, 10);
+      const bucket = days.find((item) => item.key === key);
+      if (bucket) {
+        bucket.total += e.total_amount;
+      }
     }
     return days;
-  })();
+  }, [confirmedExpenses, isEn]);
 
-  // Split-type distribution
-  const typeData = (() => {
+  // ── Split Type Breakdown ─────────────────────────────────────────
+  const splitTypeData = useMemo(() => {
     const map = new Map<string, number>();
-    for (const e of confirmed) {
-      const label = splitTypeLabel[e.split_type] ?? e.split_type;
+    const getSplitLabel = (type: string) => {
+      switch (type) {
+        case 'equal':
+          return isEn ? 'Equal' : 'تساوی';
+        case 'exact':
+          return isEn ? 'Exact' : 'دقیق';
+        case 'percentage':
+          return isEn ? 'Percentage' : 'درصدی';
+        case 'itemized':
+          return isEn ? 'Itemized' : 'آیتمی';
+        default:
+          return type;
+      }
+    };
+    for (const e of confirmedExpenses) {
+      const label = getSplitLabel(e.split_type);
       map.set(label, (map.get(label) ?? 0) + e.total_amount);
     }
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
-  })();
+  }, [confirmedExpenses, isEn]);
 
-  // Per-member totals from splits
-  const memberData = (() => {
+  // ── Member Shares Breakdown ──────────────────────────────────────
+  const memberData = useMemo(() => {
     const map = new Map<number, number>();
-    for (const e of confirmed) {
+    for (const e of confirmedExpenses) {
       for (const s of e.splits) {
         map.set(s.user, (map.get(s.user) ?? 0) + (s.amount ?? 0));
       }
     }
     return Array.from(map.entries()).map(([userId, total]) => {
       const m = members.find((x) => x.user === userId);
-      return { name: m ? m.user_name || m.user_phone : `کاربر ${userId}`, total };
+      return {
+        name: m ? m.user_name || m.user_phone : `${isEn ? 'User' : 'کاربر'} ${userId}`,
+        total,
+      };
     });
-  })();
+  }, [confirmedExpenses, members, isEn]);
+
+  if (expensesQuery.isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
+      </div>
+    );
+  }
+
+  if (expensesQuery.isError) {
+    return (
+      <ErrorState
+        error={expensesQuery.error}
+        onRetry={() => void expensesQuery.refetch()}
+      />
+    );
+  }
+
+  if (confirmedExpenses.length === 0) {
+    return (
+      <EmptyState
+        title={t('reports.noData')}
+        description={t('reports.noDataDesc')}
+        action={
+          <Button
+            variant="outline"
+            onClick={() => reportMutation.mutate()}
+            disabled={reportMutation.isPending}
+          >
+            {reportMutation.isPending ? (
+              <Loader2 className="me-1.5 size-4 animate-spin" />
+            ) : (
+              <FileDown className="me-1.5 size-4" />
+            )}
+            {t('reports.requestPdf')}
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          نمودارها از {confirmed.length.toLocaleString('fa-IR')} هزینه‌ی تاییدشده ساخته شده‌اند.
-        </p>
-        <Button onClick={() => reportMutation.mutate()} disabled={reportMutation.isPending}>
-          {reportMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
-          درخواست گزارش PDF
+    <div className="space-y-6">
+      {/* ── Header Bar ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">{t('reports.title')}</h2>
+          <p className="text-xs text-muted-foreground">
+            {t('reports.confirmedCount', {
+              count: formatNumber(confirmedExpenses.length),
+            })}
+          </p>
+        </div>
+        <Button
+          onClick={() => reportMutation.mutate()}
+          disabled={reportMutation.isPending}
+        >
+          {reportMutation.isPending ? (
+            <Loader2 className="me-1.5 size-4 animate-spin" />
+          ) : (
+            <FileDown className="me-1.5 size-4" />
+          )}
+          {t('reports.requestPdf')}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" dir="ltr">
+      {/* ── Charts Grid ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2" dir="ltr">
+        {/* Daily Expenses Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">هزینه‌ی ۷ روز اخیر</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              {t('reports.dailyTrend')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dailyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={45} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  />
+                  <YAxis
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    width={48}
+                    tickFormatter={(v) => formatNumber(v)}
+                  />
                   <Tooltip
-                    formatter={(value) => [formatToman(Number(value)), 'هزینه']}
-                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                    formatter={(value) => [formatMoney(Number(value)), isEn ? 'Total' : 'مجموع']}
+                    contentStyle={{
+                      background: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 8,
+                      color: 'hsl(var(--popover-foreground))',
+                    }}
                   />
                   <Bar dataKey="total" fill="#10B981" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -158,39 +246,80 @@ export function ReportsTab({ group, members }: ReportsTabProps) {
           </CardContent>
         </Card>
 
+        {/* Split Type Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">ترکیب هزینه‌ها بر اساس نوع تقسیم</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              {t('reports.splitDistribution')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={typeData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={3}>
-                    {typeData.map((entry, index) => (
-                      <Cell key={entry.name} fill={PALETTE[index % PALETTE.length] ?? '#10B981'} />
+                  <Pie
+                    data={splitTypeData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={50}
+                    outerRadius={85}
+                    paddingAngle={3}
+                  >
+                    {splitTypeData.map((entry, index) => (
+                      <Cell
+                        key={entry.name}
+                        fill={CHART_PALETTE[index % CHART_PALETTE.length] ?? '#10B981'}
+                      />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => formatToman(Number(value))} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value) => formatMoney(Number(value))}
+                    contentStyle={{
+                      background: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 8,
+                      color: 'hsl(var(--popover-foreground))',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12, fill: 'hsl(var(--foreground))' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
+        {/* Member Expense Shares */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">سهم اعضا از هزینه‌ها (تومان)</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              {t('reports.memberShares')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={memberData} layout="vertical" margin={{ left: 10 }}>
+                <BarChart data={memberData} layout="vertical" margin={{ left: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis type="category" dataKey="name" width={110} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <Tooltip formatter={(value) => formatNumber(Number(value))} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  <XAxis
+                    type="number"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(v) => formatNumber(v)}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => formatMoney(Number(value))}
+                    contentStyle={{
+                      background: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 8,
+                      color: 'hsl(var(--popover-foreground))',
+                    }}
+                  />
                   <Bar dataKey="total" fill="#8B5CF6" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>

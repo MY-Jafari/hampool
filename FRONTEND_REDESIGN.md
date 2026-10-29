@@ -69,7 +69,7 @@
 - [x] **Phase 3** — Dashboard & Groups list/create/join
 - [x] **Phase 4** — Group detail + Expenses (all 4 split types)
 - [x] **Phase 5** — Settlements, optimal settlement, WebSocket notifications
-- [ ] **Phase 6** — Members/invite/QR, AI name, Reports, Profile, error pages
+- [x] **Phase 6** — Members/invite/QR, AI name, Reports, Profile, error pages
 - [ ] **Phase 7** — PWA, performance, a11y, tests, final verification & docs
 
 ---

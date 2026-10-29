@@ -7,11 +7,18 @@ import { GroupsPage } from '@/features/groups/GroupsPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { ProfilePage } from '@/features/auth/ProfilePage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
+import { ForbiddenPage } from '@/features/misc/ForbiddenPage';
 import { NotFoundPage } from '@/features/misc/NotFoundPage';
+import { OfflinePage } from '@/features/misc/OfflinePage';
+import { ServerErrorPage } from '@/features/misc/ServerErrorPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  { path: '/404', element: <NotFoundPage /> },
+  { path: '/403', element: <ForbiddenPage /> },
+  { path: '/500', element: <ServerErrorPage /> },
+  { path: '/offline', element: <OfflinePage /> },
   {
     path: '/',
     element: (
@@ -25,7 +32,10 @@ export const router = createBrowserRouter([
       { path: 'groups', element: <GroupsPage /> },
       { path: 'groups/:groupId', element: <GroupDetailPage /> },
       { path: 'profile', element: <ProfilePage /> },
-      { path: '*', element: <Navigate to="/dashboard" replace /> },
+      { path: '403', element: <ForbiddenPage /> },
+      { path: '500', element: <ServerErrorPage /> },
+      { path: 'offline', element: <OfflinePage /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

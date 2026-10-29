@@ -58,5 +58,17 @@
     "fa": "فارسی",
     "en": "English",
     "switch": "Switch Language"
+  },
+  "errors": {
+    "notFoundTitle": "404 — Page Not Found",
+    "notFoundDesc": "The page you are looking for does not exist or has been moved.",
+    "forbiddenTitle": "403 — Access Denied",
+    "forbiddenDesc": "You do not have permission to view this section or perform this action.",
+    "serverErrorTitle": "500 — Server Error",
+    "serverErrorDesc": "An unexpected error occurred on the server. Please try again later.",
+    "offlineTitle": "You Are Offline",
+    "offlineDesc": "Please check your network connection and try again.",
+    "backToDashboard": "Back to Dashboard",
+    "tryAgain": "Try Again"
   }
 }

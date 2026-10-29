@@ -30,6 +30,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
 
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      const actualTheme = theme === 'system' ? 'dark' : theme;
+      setResolvedTheme(actualTheme);
+      if (actualTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+      return;
+    }
+
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const updateTheme = () => {
       const systemTheme: ResolvedTheme = mediaQuery.matches ? 'dark' : 'light';

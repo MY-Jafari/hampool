@@ -1,19 +1,28 @@
-import { Compass } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Home } from 'lucide-react';
+import { EmptyPoolIllustration } from '@/assets/illustrations/Illustrations';
 import { Button } from '@/shared/components/ui/button';
 
 export function NotFoundPage() {
+  const { t } = useTranslation(['common']);
+
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 text-center">
-      <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-secondary">
-        <Compass className="size-8 text-muted-foreground" />
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-6 py-12 text-center animate-fade-in">
+      <div className="mb-6">
+        <EmptyPoolIllustration size={160} />
       </div>
-      <h1 className="text-2xl font-bold">۴۰۴ — صفحه پیدا نشد</h1>
-      <p className="mt-2 mb-6 max-w-sm text-sm text-muted-foreground">
-        صفحه‌ای که دنبالش بودید وجود ندارد یا حذف شده است.
+      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        {t('errors.notFoundTitle')}
+      </h1>
+      <p className="mt-2 mb-8 max-w-md text-sm text-muted-foreground text-balance">
+        {t('errors.notFoundDesc')}
       </p>
-      <Button asChild>
-        <Link to="/">بازگشت به داشبورد</Link>
+      <Button asChild size="lg" className="rounded-xl px-6">
+        <Link to="/">
+          <Home className="me-2 size-4" />
+          {t('errors.backToDashboard')}
+        </Link>
       </Button>
     </div>
   );
