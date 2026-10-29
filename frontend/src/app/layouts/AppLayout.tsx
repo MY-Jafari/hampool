@@ -5,7 +5,6 @@ import {
   LogOut,
   Menu,
   PanelLeftClose,
-  PanelLeftOpen,
   PlusCircle,
   User,
   Users,
@@ -56,104 +55,125 @@ export function Sidebar() {
     <aside
       className={cn(
         'sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-border bg-card/70 backdrop-blur-md transition-all duration-300 ease-in-out lg:flex z-40',
-        collapsed ? 'w-[76px] px-2.5 py-5' : 'w-64 px-4 py-6',
+        collapsed ? 'w-20 px-3 py-6' : 'w-64 px-4 py-6',
       )}
     >
-      {/* Top Header: Logo + Toggle Button */}
-      <div
+      {/* Top Header: Logo & Single Dedicated Toggle Button */}
+      {collapsed ? (
+        <div className="flex flex-col items-center">
+          <Link
+            to="/dashboard"
+            className="mb-4 flex items-center justify-center transition-transform hover:scale-105"
+            title={t('brand.name', 'هم‌پول')}
+          >
+            <Logo variant="mark" size={40} />
+          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="flex size-9 items-center justify-center rounded-xl border border-border bg-background/90 text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={t('nav.expand', 'باز کردن منو')}
+              >
+                {isRtl ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side={isRtl ? 'left' : 'right'}>
+              {t('nav.expand', 'باز کردن منو')}
+            </TooltipContent>
+          </Tooltip>
+          {/* Subtle separator below toggle in collapsed mode */}
+          <div className="my-5 h-px w-8 bg-border/70" />
+        </div>
+      ) : (
+        <div className="mb-6 flex items-center justify-between px-1">
+          <Link
+            to="/dashboard"
+            className="flex items-center transition-opacity hover:opacity-85"
+            title={t('brand.name', 'هم‌پول')}
+          >
+            <Logo variant="full" size={36} />
+          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="flex size-8 items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={t('nav.collapse', 'بستن منو')}
+              >
+                <PanelLeftClose className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side={isRtl ? 'left' : 'right'}>
+              {t('nav.collapse', 'بستن منو')}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
+      {/* Navigation Items with Generous Spacing */}
+      <nav
         className={cn(
-          'mb-6 flex items-center',
-          collapsed ? 'flex-col gap-4 justify-center' : 'justify-between px-1',
+          'flex flex-1 flex-col',
+          collapsed ? 'gap-4 items-center' : 'gap-2',
         )}
       >
-        <Link
-          to="/dashboard"
-          className={cn(
-            'flex items-center transition-opacity hover:opacity-85',
-            collapsed && 'justify-center',
-          )}
-          title={t('brand.name', 'هم‌پول')}
-        >
-          {collapsed ? (
-            <Logo variant="mark" size={36} />
-          ) : (
-            <Logo variant="full" size={34} />
-          )}
-        </Link>
-
-        {/* Sidebar Toggle Mark / Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              className="flex size-8 items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
-            >
-              {collapsed ? (
-                isRtl ? (
-                  <ChevronLeft className="size-4" />
-                ) : (
-                  <ChevronRight className="size-4" />
-                )
-              ) : (
-                <PanelLeftClose className="size-4" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side={isRtl ? 'left' : 'right'}>
-            {collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
-      {/* Nav Items List */}
-      <nav className="flex flex-1 flex-col gap-1.5">
         {navItems.map(({ to, label, icon: Icon }) => {
-          const navLink = (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center rounded-xl text-sm font-medium transition-all',
-                  collapsed
-                    ? 'size-11 justify-center mx-auto'
-                    : 'gap-3 px-3.5 py-2.5',
-                  isActive
-                    ? 'bg-primary/10 text-primary font-semibold shadow-sm shadow-primary/5'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                )
-              }
-            >
-              <Icon className="size-[20px] shrink-0" />
-              {!collapsed && <span className="truncate">{label}</span>}
-            </NavLink>
-          );
-
           if (collapsed) {
             return (
               <Tooltip key={to}>
-                <TooltipTrigger asChild>{navLink}</TooltipTrigger>
-                <TooltipContent side={isRtl ? 'left' : 'right'}>
+                <TooltipTrigger asChild>
+                  <NavLink
+                    to={to}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex size-12 items-center justify-center rounded-2xl transition-all',
+                        isActive
+                          ? 'bg-primary/15 text-primary font-bold shadow-sm ring-1 ring-primary/25'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                      )
+                    }
+                  >
+                    <Icon className="size-[22px] shrink-0" />
+                  </NavLink>
+                </TooltipTrigger>
+                <TooltipContent side={isRtl ? 'left' : 'right'} className="font-medium">
                   {label}
                 </TooltipContent>
               </Tooltip>
             );
           }
 
-          return navLink;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium transition-all',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/5'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )
+              }
+            >
+              <Icon className="size-5 shrink-0" />
+              <span className="truncate">{label}</span>
+            </NavLink>
+          );
         })}
       </nav>
 
       {/* Footer User Info */}
-      <div className="border-t border-border pt-4">
+      <div className="mt-auto border-t border-border/70 pt-4">
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
                 to="/profile"
-                className="flex size-11 mx-auto items-center justify-center rounded-xl hover:bg-accent transition-colors"
+                className="flex size-12 mx-auto items-center justify-center rounded-2xl hover:bg-accent transition-colors"
               >
                 <UserAvatar
                   name={user?.full_name}
@@ -244,7 +264,7 @@ export function MobileDrawer() {
         </div>
 
         {/* Drawer Links */}
-        <nav className="flex flex-1 flex-col gap-2">
+        <nav className="flex flex-1 flex-col gap-2.5">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -335,7 +355,6 @@ export function BottomNav() {
           <span>{label}</span>
         </NavLink>
       ))}
-      {/* Mobile Drawer Trigger Pill */}
       <button
         type="button"
         onClick={toggleMobile}
@@ -353,7 +372,7 @@ export function Header() {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { user, refresh, clear } = useAuthStore();
-  const { collapsed, toggleCollapsed, toggleMobile } = useNavStore();
+  const { toggleMobile } = useNavStore();
 
   const handleLogout = async () => {
     try {
@@ -369,7 +388,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md lg:px-8">
       <div className="flex items-center gap-3">
-        {/* Toggle Button for Mobile Drawer */}
+        {/* Mobile-only Menu Drawer Toggle Button (No duplicate on desktop!) */}
         <button
           type="button"
           onClick={toggleMobile}
@@ -377,20 +396,6 @@ export function Header() {
           aria-label={t('nav.menu', 'منو')}
         >
           <Menu className="size-5" />
-        </button>
-
-        {/* Toggle Button for Desktop Sidebar */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="hidden size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
-          aria-label={collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-5" />
-          ) : (
-            <PanelLeftClose className="size-5" />
-          )}
         </button>
 
         <Link to="/dashboard" className="flex items-center gap-2 lg:hidden">

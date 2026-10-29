@@ -1,48 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <defs>
-    <linearGradient id="pwa512-emerald" x1="96" y1="64" x2="416" y2="384" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stopColor="#10B981" />
-      <stop offset="100%" stopColor="#0D9488" />
-    </linearGradient>
-    <linearGradient id="pwa512-amber" x1="384" y1="128" x2="128" y2="448" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stopColor="#F59E0B" />
-      <stop offset="100%" stopColor="#D97706" />
-    </linearGradient>
-    <linearGradient id="pwa512-indigo" x1="160" y1="352" x2="352" y2="96" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stopColor="#6366F1" />
-      <stop offset="100%" stopColor="#4F46E5" />
-    </linearGradient>
-    <linearGradient id="pwa512-coin" x1="176" y1="160" x2="336" y2="352" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stopColor="#FDE047" />
-      <stop offset="50%" stopColor="#F59E0B" />
-      <stop offset="100%" stopColor="#D97706" />
-    </linearGradient>
-  </defs>
-
-  <rect width="512" height="512" rx="128" fill="#0F172A" />
-
-  <g transform="translate(0, 0) scale(8)">
-    <path
-      d="M32 10C42.49 10 51 18.5 51 29C51 31.86 50.36 34.58 49.22 37.03C47.88 35.15 45.4 33.6 42 33.6C36.6 33.6 33.6 37 32 41C32 29.5 39 21.5 39 21.5C37 19.5 34.6 18.2 32 18.2C27.5 18.2 23.5 20.6 21.2 24.2C22.6 16.2 26.6 10 32 10Z"
-      fill="url(#pwa512-emerald)"
-    />
-    <path
-      d="M51 29C51 39.5 42.5 48 32 48C28.2 48 24.8 46.8 22 44.8C24.4 43.2 25.8 40.5 25.8 37.5C25.8 32.5 21.5 28.5 16.5 28.5C18.2 25.2 21 22.5 24.5 20.8C20.2 22.8 16.8 26.5 15 31.2C13.7 34.2 13 37.5 13 41C13 43.6 13.6 46 14.8 48.2C9.5 44.4 6 38.2 6 31C6 19.8 15.2 10.8 26.4 10.1C21.8 13.5 18.8 19 18.8 25.2C18.8 26.4 19 27.5 19.2 28.6C21.5 24.5 26.4 21.8 31.8 21.8C35.5 21.8 39 23.2 41.6 25.6C44 28 45.6 31.2 46.2 34.8C49.2 33.2 51 31.2 51 29Z"
-      fill="url(#pwa512-amber)"
-      opacity="0.95"
-    />
-    <path
-      d="M32 14C41.94 14 50 22.06 50 32C50 41.94 41.94 50 32 50C22.06 50 14 41.94 14 32C14 26.5 16.5 21.5 20.4 18.2L24.8 22.6C22.4 24.8 21 28.2 21 32C21 38.08 25.92 43 32 43C38.08 43 43 38.08 43 32C43 25.92 38.08 21 32 21V14Z"
-      fill="url(#pwa512-indigo)"
-      opacity="0.92"
-    />
-
-    <circle cx="32" cy="32" r="9" fill="url(#pwa512-coin)" />
-    <circle cx="32" cy="32" r="7.5" fill="none" stroke="#FEF08A" stroke-width="1" stroke-dasharray="2 1.5" opacity="0.8" />
-    <path
-      d="M28 31.5C28 29.8 29.5 28.5 31.2 28.5C32.8 28.5 34 29.5 34.5 30.8C35 29.5 36.2 28.5 37.8 28.5C39.5 28.5 41 29.8 41 31.5C41 34 37.5 36.5 34.5 37.5C31.5 36.5 28 34 28 31.5Z"
-      fill="#78350F"
-      opacity="0.85"
-    />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <rect width="400" height="400" rx="96" fill="#0D2241" />
+  <polygon points="200,106 294,200 200,294 106,200" stroke="#FFFFFF" stroke-width="15" stroke-linejoin="round" fill="none" />
+  <circle cx="200" cy="106" r="56" fill="#FFFFFF" />
+  <circle cx="200" cy="106" r="42" fill="#25CE7B" />
+  <circle cx="294" cy="200" r="56" fill="#FFFFFF" />
+  <circle cx="294" cy="200" r="42" fill="#25CE7B" />
+  <circle cx="200" cy="294" r="56" fill="#FFFFFF" />
+  <circle cx="200" cy="294" r="42" fill="#25CE7B" />
+  <circle cx="106" cy="200" r="56" fill="#FFFFFF" />
+  <circle cx="106" cy="200" r="42" fill="#25CE7B" />
 </svg>
