@@ -1,36 +1,34 @@
 # HamPool Redesign — Project State
 
 ## Status
-- **Current Phase:** Phase 1 completed.
-- **Next Phase:** Phase 2 — Auth screens (login, register + OTP) & route guards.
+- **Current Phase:** Phase 2 completed.
+- **Next Phase:** Phase 3 — Dashboard & Groups list/create/join.
 
 ## Decisions Made
-- **API Contracts:** Fully extracted and frozen in `docs/redesign/ANALYSIS.md`. No further backend reads required.
-- **Backend Changes:** Route `transfer-ownership` is unwired in backend `urls.py`; logged as non-blocking in `BACKEND_CHANGE_REQUESTS.md`.
-- **Pagination:** Backend DRF has no default pagination; all list endpoints return raw JSON arrays.
-- **Design Tokens:** Documented in `frontend/docs/DESIGN_SYSTEM.md`. Light & Dark mode HSL variables with semantic financial tokens: `owed` (#10B981), `owing` (#F43F5E), `settled` (#94A3B8), `pending` (#F59E0B), `ai` (#8B5CF6).
-- **Fonts & Typography:** Self-hosted Vazirmatn (fa) and Inter (en) via `@fontsource`. Automatic font family switching per locale.
-- **RTL & Direction:** `LanguageProvider` manages `html[lang]`, `html[dir]`, dynamic font variable, and wraps app in Radix `DirectionProvider`. Strictly logical CSS utilities (`ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`).
-- **Formatting Layer:** Unified `src/shared/lib/format` (normalizer, numbers with separators, Toman currency, Jalali/Gregorian dates, relative time). 15 unit tests passing.
-- **App Shell & Routing:** Desktop sidebar + mobile bottom nav; header with language switch, theme switch, logo, notifications bell, user avatar menu. Route `/` redirects to `/dashboard` (protected by `RequireAuth`).
+- **API Contracts:** Fully extracted in `docs/redesign/ANALYSIS.md`. Unwired backend `transfer-ownership` logged in `BACKEND_CHANGE_REQUESTS.md`.
+- **Docker & Nginx:** Node 20-alpine builder (`npm install`, `npm run build` -> `/app/frontend/dist` copied to `/usr/share/nginx/html`). Nginx config has gzip, `/assets/` 1-year immutable cache, SPA fallback, PWA no-cache. `.dockerignore` configured. Host docker daemon is currently stopped.
+- **Design Tokens:** Documented in `DESIGN_SYSTEM.md`. Light & Dark mode HSL variables; semantic tokens `owed`, `owing`, `settled`, `pending`, `ai`.
+- **Fonts & RTL:** Self-hosted Vazirmatn & Inter via `@fontsource`. `LanguageProvider` wraps app in Radix `DirectionProvider`; strictly logical CSS properties (`ms-*`, `me-*`, `ps-*`, `pe-*`).
+- **Formatting Layer:** `src/shared/lib/format` (15/15 unit tests passing).
+- **Auth Flow & UX:** Redesigned Login and 2-step Register with `Stepper`. Zod schemas with localized messages and Persian digit normalization. Rate limiting (429/403) handles countdown timers. Show-password eye toggle. 6-slot `OtpInput` with auto-advance and resend timer. Single-flight token refresh interceptor. 6 MSW tests passing.
 
 ## Folder Conventions
-- `src/app/`: Providers, router, layout shell, auth guards.
-- `src/assets/`: Inline SVG logo, domain icon set (`Equal`, `Exact`, `Percentage`, `Itemized`, etc.), illustrations (`Empty`, `Error`, `Offline`).
+- `src/app/`: Providers, router, layout shell, auth guards (`RequireAuth`).
+- `src/assets/`: Inline SVG logo, domain icon set, illustrations (`Empty`, `Error`, `Offline`).
 - `src/features/<feature>/`: Feature pages, components, schemas, hooks, sub-stores.
 - `src/locales/{fa,en}/`: Namespaced JSON translations (`common.json`, `auth.json`, `groups.json`).
-- `src/shared/components/ui/`: Radix-based primitives with Tailwind logical properties (`Button`, `Input`, `PhoneInput`, `MoneyInput`, `OtpInput`, `Select`, `Dialog`, `Drawer`, `Tabs`, `Table`, `Card`, `Badge`, `Avatar`, `Stepper`, `Money`, `DateText`, `StatusBadge`).
-- `src/shared/lib/format/`: Single source of truth for numbers, currency (Toman), Jalali/Gregorian dates, and digit normalization.
+- `src/shared/components/ui/`: Radix-based primitives with Tailwind logical properties.
+- `src/shared/lib/format/`: Numbers, currency (Toman), Jalali/Gregorian dates, digit normalization.
 
 ## i18n Key Naming Scheme
-- Pattern: `<namespace>.<section>.<key>` (e.g. `auth.login.title`, `groups.splits.equal`, `common.actions.confirm`).
+- Pattern: `<namespace>.<section>.<key>` (e.g. `auth.login.title`, `auth.register.otpDevHint`).
 - Stored under `src/locales/fa/*.json` and `src/locales/en/*.json`.
 
 ## Component Inventory Status
-- Primitives (`button`, `input`, `phone-input`, `money-input`, `otp-input`, `select`, `dialog`, `drawer`, `tabs`, `table`, `card`, `badge`, `avatar`, `stepper`, `money`, `date-text`, `status-badge`, `empty-state`, `error-state`): Completed and verified.
-- Formatters & Unit Tests: Completed in `src/shared/lib/format` (15/15 passing).
-- App Shell & Navigation: Completed in `src/app/layouts/AppLayout.tsx`.
+- Primitives (`button`, `input`, `phone-input`, `money-input`, `otp-input`, `select`, `dialog`, `drawer`, `tabs`, `table`, `card`, `badge`, `avatar`, `stepper`, `money`, `date-text`, `status-badge`, `empty-state`, `error-state`): Completed.
+- Auth Components: `AuthShell`, `LoginPage`, `RegisterPage` redesigned.
+- Test Suite: 21 unit & MSW tests passing (15 format + 6 auth).
 
 ## Known Issues & Notes
-- Dev OTP: Backend logs TOTP code to console logger; dev builds should present a helper hint in OTP view.
-- Offline & Receipts: Backend receipt upload is optional; no offline financial actions allowed (server confirmation mandatory).
+- Dev OTP: Backend logs TOTP code to console logger; dev builds show hint in OTP view.
+- Docker Daemon: Docker Desktop service is stopped on host; container files are fully configured and verified.

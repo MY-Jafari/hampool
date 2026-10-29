@@ -1,195 +1,359 @@
+import React, { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Eye, EyeOff, Info, Loader2, ShieldCheck, ArrowRight, RotateCw, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import axios from 'axios';
 import { AuthShell } from '@/features/auth/AuthShell';
-import { register, verifyOtp } from '@/features/auth/api';
+import { register as registerApi, verifyOtp } from '@/features/auth/api';
 import { useAuthStore } from '@/features/auth/store';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { toastError } from '@/shared/lib/errors';
-import { isValidPhone } from '@/shared/lib/formats';
-import { cn } from '@/shared/lib/utils';
-
-const detailsSchema = z
-  .object({
-    phone_number: z
-      .string()
-      .min(1, 'شماره موبایل را وارد کنید')
-      .refine(isValidPhone, 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد'),
-    password: z.string().min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد'),
-    password_confirm: z.string(),
-  })
-  .refine((d) => d.password === d.password_confirm, {
-    message: 'رمزها یکسان نیستند',
-    path: ['password_confirm'],
-  });
-
-type DetailsValues = z.infer<typeof detailsSchema>;
-
-function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <Input
-      value={value}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
-      inputMode="numeric"
-      autoComplete="one-time-code"
-      placeholder="• • • • • •"
-      dir="ltr"
-      className="h-12 text-center text-lg font-bold tracking-[0.5em]"
-    />
-  );
-}
+import { PhoneInput } from '@/shared/components/ui/phone-input';
+import { OtpInput } from '@/shared/components/ui/otp-input';
+import { Stepper } from '@/shared/components/ui/stepper';
+import { getErrorMessage, getRateLimitWaitSeconds } from '@/shared/lib/errors';
+import { normalizeDigits } from '@/shared/lib/format';
 
 export function RegisterPage() {
+  const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const setTokens = useAuthStore((s) => s.setTokens);
+
+  const [step, setStep] = useState<0 | 1>(0);
   const [tempToken, setTempToken] = useState<string | null>(null);
-  const [otp, setOtp] = useState('');
+  const [registeredPhone, setRegisteredPhone] = useState<string>('');
+  const [otpCode, setOtpCode] = useState<string>('');
   const [verifying, setVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(60);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  // Rate limit countdown
+  useEffect(() => {
+    if (rateLimitSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setRateLimitSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [rateLimitSeconds]);
+
+  const detailsSchema = React.useMemo(
+    () =>
+      z
+        .object({
+          phone_number: z
+            .string()
+            .min(1, t('register.requiredPhone', 'شماره موبایل را وارد کنید'))
+            .transform((val) => normalizeDigits(val))
+            .refine(
+              (val) => /^09\d{9}$/.test(val),
+              t('register.invalidPhone', 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد'),
+            ),
+          password: z
+            .string()
+            .min(8, t('register.passwordTooShort', 'رمز عبور باید حداقل ۸ کاراکتر باشد')),
+          password_confirm: z.string(),
+        })
+        .refine((data) => data.password === data.password_confirm, {
+          message: t('register.passwordsDoNotMatch', 'رمزهای عبور یکسان نیستند'),
+          path: ['password_confirm'],
+        }),
+    [t],
+  );
+
+  type DetailsValues = z.infer<typeof detailsSchema>;
 
   const {
-    register: registerField,
+    control,
+    register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
-  } = useForm<DetailsValues>({ resolver: zodResolver(detailsSchema), defaultValues: { phone_number: '', password: '', password_confirm: '' } });
+  } = useForm<DetailsValues>({
+    resolver: zodResolver(detailsSchema),
+    defaultValues: { phone_number: '', password: '', password_confirm: '' },
+  });
 
   const onSubmitDetails = async (values: DetailsValues) => {
+    if (rateLimitSeconds > 0) return;
     try {
-      const res = await register({
+      const res = await registerApi({
         phone_number: values.phone_number,
         password: values.password,
         password_confirm: values.password_confirm,
       });
       setTempToken(res.temp_token);
-      toast.success('کد تایید برای شما ارسال شد.');
-    } catch (err) {
-      toastError(err);
+      setRegisteredPhone(values.phone_number);
+      setStep(1);
+      setResendCooldown(60);
+      toast.success(t('register.success', 'کد تایید برای شما ارسال شد.'));
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 429 || (err.response?.status === 403 && /rate|limit/i.test(JSON.stringify(err.response.data)))) {
+          const waitSec = getRateLimitWaitSeconds(err);
+          setRateLimitSeconds(waitSec);
+          toast.error(t('register.rateLimited', { seconds: waitSec, defaultValue: `تعداد درخواست‌ها بیش از حد مجاز است. لطفاً ${waitSec} ثانیه صبر کنید.` }));
+          return;
+        }
+      }
+      toast.error(getErrorMessage(err));
     }
   };
 
-  const onSubmitOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onResendCode = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      const values = getValues();
+      const res = await registerApi({
+        phone_number: values.phone_number,
+        password: values.password,
+        password_confirm: values.password_confirm,
+      });
+      setTempToken(res.temp_token);
+      setResendCooldown(60);
+      toast.success(t('register.success', 'کد تایید جدید برای شما ارسال شد.'));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const handleVerifyOtp = async (codeToVerify?: string) => {
+    const code = codeToVerify ?? otpCode;
     if (!tempToken) return;
-    if (otp.length < 6) {
-      toast.error('کد تایید باید ۶ رقم باشد.');
+    if (code.length < 6) {
+      toast.error(t('register.otpInvalidLength', 'کد تایید باید ۶ رقم باشد.'));
       return;
     }
+
     setVerifying(true);
     try {
-      const tokens = await verifyOtp(otp, tempToken);
+      const tokens = await verifyOtp(code, tempToken);
       setTokens(tokens.access, tokens.refresh);
-      toast.success('شماره موبایل شما تایید شد. خوش آمدید 🎉');
-      navigate('/', { replace: true });
+      toast.success(t('register.verified', 'شماره موبایل با موفقیت تایید شد. خوش آمدید 🎉'));
+      navigate('/dashboard', { replace: true });
     } catch (err) {
-      toastError(err);
+      toast.error(getErrorMessage(err));
     } finally {
       setVerifying(false);
     }
   };
 
+  const stepsList = [
+    { id: 1, label: t('register.step1', 'اطلاعات حساب') },
+    { id: 2, label: t('register.step2', 'کد تایید') },
+  ];
+
   return (
     <AuthShell
-      title={tempToken ? 'تایید شماره موبایل' : 'ساخت حساب جدید'}
+      title={step === 0 ? t('register.title', 'ساخت حساب جدید') : t('register.otpTitle', 'تایید شماره موبایل')}
       subtitle={
-        tempToken ? 'کد ۶ رقمی ارسال‌شده را وارد کنید' : 'ثبت‌نام با شماره موبایل — فقط چند ثانیه'
+        step === 0
+          ? t('register.subtitle', 'ثبت‌نام با شماره موبایل — فقط چند ثانیه')
+          : t('register.otpSubtitle', {
+              phone: registeredPhone,
+              defaultValue: `کد ۶ رقمی ارسال‌شده به ${registeredPhone} را وارد کنید`,
+            })
       }
       footer={
         <>
-          قبلاً حساب ساخته‌اید؟{' '}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            وارد شوید
+          {t('register.hasAccount', 'قبلاً ثبت‌نام کرده‌اید؟')}{' '}
+          <Link to="/login" className="font-semibold text-primary hover:underline">
+            {t('register.loginLink', 'وارد شوید')}
           </Link>
         </>
       }
     >
-      {/* Step indicator */}
-      <div className="mb-6 flex items-center gap-2">
-        {[1, 2].map((step) => (
-          <div
-            key={step}
-            className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors',
-              (step === 1 && !tempToken) || (step === 2 && tempToken)
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground',
-            )}
-          >
-            {step === 1 ? <Smartphone className="size-3.5" /> : <ShieldCheck className="size-3.5" />}
-          </div>
-        ))}
-        <div className="h-px flex-1 bg-border" />
+      <div className="mb-6">
+        <Stepper steps={stepsList} currentStep={step} />
       </div>
 
-      {!tempToken ? (
+      {rateLimitSeconds > 0 && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs text-warning animate-fade-in">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>
+            {t('register.rateLimited', {
+              seconds: rateLimitSeconds,
+              defaultValue: `تعداد درخواست‌ها بیش از حد مجاز است. لطفاً ${rateLimitSeconds} ثانیه صبر کنید.`,
+            })}
+          </span>
+        </div>
+      )}
+
+      {step === 0 ? (
         <form onSubmit={handleSubmit(onSubmitDetails)} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="phone">شماره موبایل</Label>
-            <Input
-              id="phone"
-              inputMode="numeric"
-              placeholder="09xxxxxxxxx"
-              dir="ltr"
-              className="text-left"
-              {...registerField('phone_number')}
+            <Label htmlFor="phone">{t('register.phone', 'شماره موبایل')}</Label>
+            <Controller
+              name="phone_number"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  id="phone"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={Boolean(errors.phone_number)}
+                  placeholder={t('register.phonePlaceholder', '09123456789')}
+                />
+              )}
             />
-            {errors.phone_number && <p className="text-xs text-destructive">{errors.phone_number.message}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">رمز عبور</Label>
-            <Input id="password" type="password" placeholder="حداقل ۸ کاراکتر" {...registerField('password')} />
-            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password_confirm">تکرار رمز عبور</Label>
-            <Input
-              id="password_confirm"
-              type="password"
-              placeholder="••••••••"
-              {...registerField('password_confirm')}
-            />
-            {errors.password_confirm && (
-              <p className="text-xs text-destructive">{errors.password_confirm.message}</p>
+            {errors.phone_number && (
+              <p className="text-xs text-destructive animate-fade-in">{errors.phone_number.message}</p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-            ثبت‌نام و دریافت کد
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password">{t('register.password', 'رمز عبور')}</Label>
+            <div className="relative flex items-center">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('register.passwordPlaceholder', 'حداقل ۸ کاراکتر')}
+                error={Boolean(errors.password)}
+                className="pe-10"
+                {...register('password')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute end-3 text-muted-foreground hover:text-foreground focus:outline-none"
+                aria-label={showPassword ? t('register.hidePassword', 'مخفی کردن') : t('register.showPassword', 'نمایش')}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="text-xs text-destructive animate-fade-in">{errors.password.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password_confirm">{t('register.passwordConfirm', 'تکرار رمز عبور')}</Label>
+            <div className="relative flex items-center">
+              <Input
+                id="password_confirm"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder={t('register.passwordConfirmPlaceholder', '••••••••')}
+                error={Boolean(errors.password_confirm)}
+                className="pe-10"
+                {...register('password_confirm')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute end-3 text-muted-foreground hover:text-foreground focus:outline-none"
+                aria-label={showConfirmPassword ? t('register.hidePassword', 'مخفی کردن') : t('register.showPassword', 'نمایش')}
+              >
+                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {errors.password_confirm && (
+              <p className="text-xs text-destructive animate-fade-in">{errors.password_confirm.message}</p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full gap-2 font-semibold"
+            disabled={isSubmitting || rateLimitSeconds > 0}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>{t('register.submitting', 'در حال ارسال...')}</span>
+              </>
+            ) : (
+              <span>{t('register.submit', 'ثبت‌نام و دریافت کد')}</span>
+            )}
           </Button>
         </form>
       ) : (
-        <form onSubmit={onSubmitOtp} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="otp">کد تایید</Label>
-            <OtpInput value={otp} onChange={setOtp} />
-            <p className="flex items-start gap-1.5 pt-1 text-xs text-muted-foreground">
-              <Info className="mt-0.5 size-3.5 shrink-0" />
+        <div className="space-y-5 animate-fade-in">
+          <div className="space-y-2">
+            <Label htmlFor="otp" className="text-center block">
+              {t('register.otpSubtitle', { phone: registeredPhone })}
+            </Label>
+            <OtpInput
+              value={otpCode}
+              onChange={setOtpCode}
+              onComplete={(code) => handleVerifyOtp(code)}
+              disabled={verifying}
+            />
+
+            {/* Dev Hint Banner */}
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
               <span>
-                در محیط توسعه، کد تایید در <b dir="ltr">console</b> سرور بک‌اند چاپ می‌شود (در پروداکشن پیامک
-                می‌شود).
+                {t(
+                  'register.otpDevHint',
+                  'راهنمای توسعه: کد OTP در کنسول سرور بک‌اند چاپ می‌شود.',
+                )}
               </span>
-            </p>
+            </div>
           </div>
-          <Button type="submit" className="w-full" disabled={verifying}>
-            {verifying ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-            تایید و ورود
-          </Button>
+
           <Button
             type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={() => {
-              setTempToken(null);
-              setOtp('');
-            }}
+            className="w-full gap-2 font-semibold"
+            onClick={() => handleVerifyOtp()}
+            disabled={verifying || otpCode.length < 6}
           >
-            بازگشت به اطلاعات ثبت‌نام
+            {verifying ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>{t('register.otpVerifying', 'در حال تایید...')}</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="size-4" />
+                <span>{t('register.otpSubmit', 'تایید و ورود به حساب')}</span>
+              </>
+            )}
           </Button>
-        </form>
+
+          <div className="flex items-center justify-between text-xs pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setStep(0);
+                setOtpCode('');
+              }}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowRight className="size-3.5 rtl:rotate-180" />
+              <span>{t('register.backToDetails', 'ویرایش اطلاعات و شماره')}</span>
+            </button>
+
+            {resendCooldown > 0 ? (
+              <span className="text-muted-foreground">
+                {t('register.resendIn', { seconds: resendCooldown, defaultValue: `ارسال مجدد تا ${resendCooldown} ثانیه دیگر` })}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={onResendCode}
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+              >
+                <RotateCw className="size-3" />
+                <span>{t('register.resend', 'ارسال مجدد کد')}</span>
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </AuthShell>
   );

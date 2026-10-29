@@ -65,7 +65,7 @@
 
 - [x] **Phase 0** — Analysis & contract extraction
 - [x] **Phase 1** — Foundation: design system, i18n/RTL, assets, app shell
-- [ ] **Phase 2** — Auth screens (login, register + OTP) & route guards
+- [x] **Phase 2** — Auth screens (login, register + OTP) & route guards
 - [ ] **Phase 3** — Dashboard & Groups list/create/join
 - [ ] **Phase 4** — Group detail + Expenses (all 4 split types)
 - [ ] **Phase 5** — Settlements, optimal settlement, WebSocket notifications
@@ -136,7 +136,26 @@ Create `docs/redesign/STATE.md` and `BACKEND_CHANGE_REQUESTS.md` (empty template
 Phase N done.
 Changed: <3–5 key items>
 Checks: tsc ✅ lint ✅ build ✅ tests ✅/n.a.
+Docker: build nginx ✅ / served at http://localhost/ ✅
 Decisions recorded in STATE.md: <count>
 Backend change requests added: <count>
 Next phase: N+1 — <name>
 ```
+
+---
+
+## 6. Docker Compatibility (applies to every remaining phase)
+
+Docker is the primary way this project runs. Before finishing ANY phase:
+1. Read `nginx/Dockerfile` and `nginx/default.conf` once (first time only) and record in STATE.md: Node version used in the build stage, install command (npm ci/install), build command, output dir, and how the dist is copied into nginx.
+2. Frontend changes must build inside Docker, not only locally: 
+`docker compose build nginx` must succeed, then `docker compose up -d nginx` and verify `http://localhost/` loads and `http://localhost/health/` responds.
+3. `package-lock.json` must always be committed and in sync with `package.json` (the Docker build depends on it). Never leave uninstalled or locally-only dependencies.
+4. Ensure `frontend/.dockerignore` exists (node_modules, dist, .vite, coverage, playwright-report, test-results) to keep the build context small and builds fast.
+5. The Docker build must not need internet access at runtime: fonts and assets are self-hosted; no CDN links in `index.html`.
+6. The app must call the API through relative URLs (`/api`, `/ws`) so it works behind nginx in both docker-compose.yml and docker-compose.prod.yml, and via the Vite proxy in dev. Never hard-code `localhost:8000` or an absolute origin. Build WebSocket URLs from `window.location` (ws/wss by protocol).
+7. nginx rules to verify/update when relevant (explain any change in STATE.md): SPA fallback to index.html; long-lived immutable cache for hashed assets; no-cache for index.html, sw.js, manifest and registerSW; correct MIME for woff2/svg/webmanifest; WS upgrade headers on /ws; gzip (and brotli if available).
+8. Any new env var must be added to `.env.example` and documented; only `VITE_*` vars are exposed to the frontend and they must be build-time safe (no secrets).
+9. In Phase 7, also verify the prod stack: `docker compose -f docker-compose.prod.yml build` succeeds and the SPA is served correctly through nginx.
+10. Do not modify backend services, ports, or volumes in compose files unless strictly required; if so, list it in BACKEND_CHANGE_REQUESTS.md.
+

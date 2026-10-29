@@ -36,7 +36,7 @@ async function tryRefresh(): Promise<string | null> {
     return data.access;
   } catch {
     useAuthStore.getState().clear();
-    if (window.location.pathname !== '/login') {
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
       window.location.href = '/login';
     }
     return null;
