@@ -1,10 +1,64 @@
 {
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your financial standing across all groups",
+    "totalOwed": "You are owed",
+    "totalOwing": "You owe",
+    "groupsCount": "Active Groups",
+    "myGroups": "My Groups",
+    "recentExpenses": "Recent Expenses",
+    "noExpenses": "No expenses recorded yet.",
+    "viewAll": "View All",
+    "settled": "Settled",
+    "pendingConfirmation": "Pending Confirmation",
+    "loadFailed": "Failed to load dashboard data"
+  },
   "list": {
-    "title": "My Groups",
+    "title": "Groups",
+    "subtitle": "All shared expense groups you are a member of",
     "create": "Create Group",
-    "join": "Join via Invite Code",
+    "join": "Join with Code",
     "empty": "You are not a member of any group yet",
-    "emptyDesc": "Create your first pool or join an existing group using an invite code from friends."
+    "emptyDesc": "Create your first group or join an existing pool with an invite code from friends.",
+    "searchPlaceholder": "Search group name or description...",
+    "sortBy": "Sort by",
+    "sortRecent": "Most Recent",
+    "sortName": "Name",
+    "sortExpenses": "Highest Expenses",
+    "membersCount": "{{count}} members",
+    "totalExpenses": "Total: {{amount}}",
+    "budgetRemaining": "{{amount}} remaining of budget",
+    "budgetExceeded": "Over budget",
+    "noSearchResults": "No matching groups found",
+    "noSearchResultsDesc": "Try adjusting your search terms or create a new group.",
+    "clearSearch": "Clear filter"
+  },
+  "create": {
+    "title": "Create New Group",
+    "subtitle": "Create a group to share and track expenses together.",
+    "name": "Group Name *",
+    "namePlaceholder": "e.g. Ski Trip, Apartment",
+    "nameRequired": "Group name is required",
+    "nameTooLong": "Group name is too long",
+    "description": "Description (Optional)",
+    "descriptionPlaceholder": "Short summary of what this group is for...",
+    "descTooLong": "Description is too long",
+    "budget": "Group Budget Limit (Toman)",
+    "budgetPlaceholder": "0 = No budget limit",
+    "submit": "Create Group",
+    "submitting": "Creating...",
+    "success": "Group \"{{name}}\" created successfully."
+  },
+  "join": {
+    "title": "Join via Invite Code",
+    "subtitle": "Enter the 8-character invite code provided by the group admin.",
+    "code": "Invite Code",
+    "codePlaceholder": "e.g. A1B2C3D4",
+    "codeRequired": "Invite code is required",
+    "codeInvalid": "Invalid invite code",
+    "submit": "Join Group",
+    "submitting": "Joining...",
+    "success": "Successfully joined the group 🎉"
   },
   "detail": {
     "tabs": {

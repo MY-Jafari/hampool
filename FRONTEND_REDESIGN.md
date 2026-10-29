@@ -66,7 +66,7 @@
 - [x] **Phase 0** — Analysis & contract extraction
 - [x] **Phase 1** — Foundation: design system, i18n/RTL, assets, app shell
 - [x] **Phase 2** — Auth screens (login, register + OTP) & route guards
-- [ ] **Phase 3** — Dashboard & Groups list/create/join
+- [x] **Phase 3** — Dashboard & Groups list/create/join
 - [ ] **Phase 4** — Group detail + Expenses (all 4 split types)
 - [ ] **Phase 5** — Settlements, optimal settlement, WebSocket notifications
 - [ ] **Phase 6** — Members/invite/QR, AI name, Reports, Profile, error pages

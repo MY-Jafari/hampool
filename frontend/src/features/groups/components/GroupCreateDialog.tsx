@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, PlusCircle } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -17,18 +18,9 @@ import {
 } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { MoneyInput } from '@/shared/components/ui/money-input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { toastError } from '@/shared/lib/errors';
-
-const schema = z.object({
-  name: z.string().min(1, 'نام گروه را وارد کنید').max(200, 'نام خیلی طولانی است'),
-  description: z.string().max(500, 'توضیح خیلی طولانی است').optional(),
-  budget_limit: z
-    .union([z.literal(''), z.string().regex(/^\d+$/, 'بودجه باید عدد باشد')])
-    .optional(),
-});
-
-type FormValues = z.infer<typeof schema>;
 
 interface GroupCreateDialogProps {
   open: boolean;
@@ -36,25 +28,45 @@ interface GroupCreateDialogProps {
 }
 
 export function GroupCreateDialog({ open, onOpenChange }: GroupCreateDialogProps) {
+  const { t } = useTranslation(['groups', 'common']);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const schema = z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, t('create.nameRequired', { defaultValue: 'نام گروه را وارد کنید' }))
+      .max(200, t('create.nameTooLong', { defaultValue: 'نام گروه بیش از حد مجاز طولانی است' })),
+    description: z
+      .string()
+      .max(500, t('create.descTooLong', { defaultValue: 'توضیح گروه بیش از حد مجاز طولانی است' }))
+      .optional(),
+    budget_limit: z.number().min(0).optional(),
+  });
+
+  type FormValues = z.infer<typeof schema>;
+
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { name: '', description: '', budget_limit: '' } });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: '', description: '', budget_limit: 0 },
+  });
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       createGroup({
         name: values.name,
-        description: values.description ?? '',
-        budget_limit: values.budget_limit ? Number(values.budget_limit) : 0,
+        description: values.description?.trim() ?? '',
+        budget_limit: values.budget_limit ?? 0,
       }),
     onSuccess: (group) => {
-      toast.success(`گروه «${group.name}» ساخته شد.`);
+      toast.success(t('create.success', { name: group.name, defaultValue: `گروه «${group.name}» ساخته شد.` }));
       void queryClient.invalidateQueries({ queryKey: ['groups'] });
       reset();
       onOpenChange(false);
@@ -63,48 +75,83 @@ export function GroupCreateDialog({ open, onOpenChange }: GroupCreateDialogProps
     onError: (err) => toastError(err),
   });
 
+  const handleClose = () => {
+    if (mutation.isPending) return;
+    reset();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>ساخت گروه جدید</DialogTitle>
-          <DialogDescription>
-            برای مدیریت هزینه‌های مشترک، یک گروه بسازید و اعضا را دعوت کنید.
-          </DialogDescription>
+          <DialogTitle>{t('create.title')}</DialogTitle>
+          <DialogDescription>{t('create.subtitle')}</DialogDescription>
         </DialogHeader>
+
         <form
           id="create-group-form"
           onSubmit={handleSubmit((values) => mutation.mutate(values))}
           className="space-y-4"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="name">نام گروه *</Label>
-            <Input id="name" placeholder="مثلاً خونه‌ی دانشجویی" {...register('name')} />
+            <Label htmlFor="group-name">{t('create.name')}</Label>
+            <Input
+              id="group-name"
+              placeholder={t('create.namePlaceholder')}
+              autoFocus
+              {...register('name')}
+            />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="description">توضیحات</Label>
-            <Textarea id="description" placeholder="اختیاری" {...register('description')} />
+            <Label htmlFor="group-description">{t('create.description')}</Label>
+            <Textarea
+              id="group-description"
+              placeholder={t('create.descriptionPlaceholder')}
+              rows={3}
+              {...register('description')}
+            />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="budget">بودجه‌ی ماهانه (تومان)</Label>
-            <Input
-              id="budget"
-              inputMode="numeric"
-              placeholder="۰ = بدون محدودیت"
-              {...register('budget_limit')}
+            <Label htmlFor="group-budget">{t('create.budget')}</Label>
+            <Controller
+              control={control}
+              name="budget_limit"
+              render={({ field }) => (
+                <MoneyInput
+                  id="group-budget"
+                  value={field.value ?? 0}
+                  onChange={field.onChange}
+                  placeholder={t('create.budgetPlaceholder')}
+                />
+              )}
             />
-            {errors.budget_limit && <p className="text-xs text-destructive">{errors.budget_limit.message}</p>}
+            {errors.budget_limit && (
+              <p className="text-xs text-destructive">{errors.budget_limit.message}</p>
+            )}
           </div>
         </form>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            انصراف
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" type="button" onClick={handleClose} disabled={mutation.isPending}>
+            {t('common:actions.cancel')}
           </Button>
-          <Button type="submit" form="create-group-form" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
-            ساخت گروه
+          <Button
+            type="submit"
+            form="create-group-form"
+            disabled={mutation.isPending}
+            className="gap-2"
+          >
+            {mutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <PlusCircle className="size-4" />
+            )}
+            {mutation.isPending ? t('create.submitting') : t('create.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

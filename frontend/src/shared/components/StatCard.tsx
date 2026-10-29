@@ -6,9 +6,9 @@ import { cn } from '@/shared/lib/utils';
 interface StatCardProps {
   icon: LucideIcon;
   label: string;
-  value: string;
+  value: React.ReactNode;
   hint?: string;
-  tone?: 'default' | 'success' | 'danger' | 'ai';
+  tone?: 'default' | 'success' | 'danger' | 'ai' | 'owed' | 'owing';
   loading?: boolean;
 }
 
@@ -17,6 +17,8 @@ const toneText = {
   success: 'text-success',
   danger: 'text-danger',
   ai: 'text-ai',
+  owed: 'text-owed',
+  owing: 'text-owing',
 } as const;
 
 const toneIconBg = {
@@ -24,6 +26,8 @@ const toneIconBg = {
   success: 'bg-success/15 text-success',
   danger: 'bg-danger/15 text-danger',
   ai: 'bg-ai/15 text-ai',
+  owed: 'bg-owed/15 text-owed',
+  owing: 'bg-owing/15 text-owing',
 } as const;
 
 export function StatCard({ icon: Icon, label, value, hint, tone = 'default', loading }: StatCardProps) {
@@ -35,7 +39,9 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'default', loa
           {loading ? (
             <Skeleton className="mt-2 h-8 w-24" />
           ) : (
-            <p className={cn('mt-1 truncate text-xl font-bold sm:text-2xl', toneText[tone])}>{value}</p>
+            <div className={cn('mt-1 truncate text-xl font-bold sm:text-2xl', toneText[tone])}>
+              {value}
+            </div>
           )}
           {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
         </div>
