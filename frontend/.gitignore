@@ -11,3 +11,5 @@ vite.config.js
 .vscode/*
 !.vscode/extensions.json
 .DS_Store
+playwright-report/
+test-results/

@@ -1,8 +1,10 @@
 import { Moon, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/providers/ThemeProvider';
 import { Button } from '@/shared/components/ui/button';
 
 export function ThemeSwitcher({ variant = 'ghost' }: { variant?: 'ghost' | 'outline' }) {
+  const { t } = useTranslation('common');
   const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
@@ -11,7 +13,7 @@ export function ThemeSwitcher({ variant = 'ghost' }: { variant?: 'ghost' | 'outl
       size="icon"
       onClick={toggleTheme}
       className="size-9 rounded-full select-none"
-      aria-label="تغییر تم / Toggle Theme"
+      aria-label={t('theme.toggle', 'تغییر تم')}
     >
       {resolvedTheme === 'dark' ? (
         <Sun className="size-4 text-amber-400 transition-transform hover:rotate-45" />

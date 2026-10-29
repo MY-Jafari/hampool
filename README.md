@@ -128,14 +128,17 @@
 
 | فناوری | کاربرد |
 |--------|--------|
-| React 18 · Vite · TypeScript (strict) | چارچوب اصلی |
-| TailwindCSS + shadcn/ui (Radix) | طراحی دارک، راست‌چین، موبایل‌فرست |
-| TanStack Query · Axios | مدیریت داده و JWT interceptor با refresh خودکار |
-| Zustand | استور (auth، اعلان‌ها) |
-| React Hook Form + Zod | فرم‌ها |
-| Recharts | نمودارهای گزارش‌ها |
-| WebSocket manager | اتصال زنده با reconnect خودکار |
-| Vazirmatn · lucide-react | فونت فارسی و آیکون‌ها |
+| React 18 · Vite · TypeScript (strict) | چارچوب اصلی و باندلر سریع |
+| TailwindCSS + shadcn/ui (Radix) | رابط کاربری مدرن، تم روشن و تاریک، پشتیبانی کامل از RTL/LTR |
+| TanStack Query · Axios | مدیریت کش سرور و رهگیری توکن JWT با refresh خودکار تک‌پروازی |
+| react-i18next · i18next | دو زبانه (فارسی و انگلیسی) با جابجایی آنی در زمان اجرا |
+| vite-plugin-pwa | پشتیبانی کامل PWA، کش آفلاین استاتیک و نصب‌پذیری |
+| Zustand | مدیریت وضعیت محلی و اعلان‌های رویدادهای زنده |
+| React Hook Form + Zod | اعتبارسنجی فرم‌ها با خطاهای بومی‌سازی‌شده |
+| Recharts | نمودارهای تحلیلی، روند هزینه‌ها و سهم اعضا |
+| WebSocket manager | ارتباط بلادرنگ پایدار با پس‌روی نمایی و اتصال مجدد |
+| Vitest · MSW · Playwright | تست‌های واحد، شبیه‌سازی API و آزمون‌های E2E |
+| Vazirmatn · Inter · lucide-react | فونت‌های خودمیزبان فارسی و انگلیسی و آیکون‌های وکتور SVG |
 
 ---
 
@@ -508,7 +511,7 @@ npx tsc -b && npm run lint && npm run build
 - [ ] **آپلود رسید** (تصویر فاکتور برای هزینه‌ها)
 - [ ] **اعلان‌های ذخیره‌شده سمت سرور** — فعلاً اعلان‌ها فقط در نشست مرورگر می‌مانند
 - [ ] **پرداخت آنلاین** — اتصال به درگاه پرداخت
-- [ ] **تست‌های فرانت‌اند** (Vitest / Playwright)
+- [x] **تست‌های فرانت‌اند** (Vitest / Playwright)
 
 ---
 

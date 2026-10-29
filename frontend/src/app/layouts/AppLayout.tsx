@@ -151,7 +151,7 @@ export function Header() {
             <button
               type="button"
               className="flex items-center gap-2 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="منوی کاربر / User menu"
+              aria-label={t('nav.profile', 'پروفایل')}
             >
               <UserAvatar
                 name={user?.full_name}
