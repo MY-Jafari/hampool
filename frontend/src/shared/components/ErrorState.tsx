@@ -1,25 +1,43 @@
-import { AlertTriangle, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/ui/button';
 import { getErrorMessage } from '@/shared/lib/errors';
+import { ErrorIllustration } from '@/assets/illustrations/Illustrations';
+import { cn } from '@/shared/lib/utils';
 
-interface ErrorStateProps {
-  error: unknown;
+export interface ErrorStateProps {
+  error?: unknown;
   onRetry?: () => void;
   title?: string;
+  description?: string;
+  className?: string;
 }
 
-export function ErrorState({ error, onRetry, title = 'مشکلی پیش آمد' }: ErrorStateProps) {
+export function ErrorState({ error, onRetry, title, description, className }: ErrorStateProps) {
+  const { t } = useTranslation('common');
+  const displayTitle = title ?? t('status.error', 'خطایی رخ داده است');
+  const displayDesc = description ?? (error ? getErrorMessage(error) : '');
+
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card/40 px-6 py-12 text-center">
-      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-destructive/15">
-        <AlertTriangle className="size-6 text-destructive" />
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/5 px-6 py-12 text-center animate-fade-in',
+        className,
+      )}
+    >
+      <div className="mb-4">
+        <ErrorIllustration size={110} />
       </div>
-      <h3 className="mb-1 text-base font-semibold">{title}</h3>
-      <p className="mb-5 max-w-sm text-sm text-muted-foreground">{getErrorMessage(error)}</p>
+      <h3 className="mb-1 text-base font-bold text-foreground">{displayTitle}</h3>
+      {displayDesc && (
+        <p className="mb-5 max-w-sm text-sm text-muted-foreground text-balance">
+          {displayDesc}
+        </p>
+      )}
       {onRetry && (
-        <Button variant="outline" size="sm" onClick={onRetry}>
+        <Button variant="outline" size="sm" onClick={onRetry} className="gap-2">
           <RotateCw className="size-4" />
-          تلاش مجدد
+          {t('actions.retry', 'تلاش مجدد')}
         </Button>
       )}
     </div>

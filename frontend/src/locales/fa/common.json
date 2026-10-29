@@ -1,0 +1,62 @@
+{
+  "brand": {
+    "name": "هم‌پول",
+    "tagline": "مدیریت و تسویه آسان هزینه‌های مشترک"
+  },
+  "nav": {
+    "dashboard": "داشبورد",
+    "groups": "گروه‌ها",
+    "profile": "پروفایل",
+    "settings": "تنظیمات",
+    "newGroup": "گروه جدید",
+    "logout": "خروج از حساب"
+  },
+  "actions": {
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "delete": "حذف",
+    "edit": "ویرایش",
+    "confirm": "تایید",
+    "retry": "تلاش مجدد",
+    "back": "بازگشت",
+    "close": "بستن",
+    "submit": "ثبت",
+    "search": "جستجو...",
+    "copy": "کپی",
+    "copied": "کپی شد!",
+    "share": "اشتراک‌گذاری"
+  },
+  "status": {
+    "loading": "در حال بارگذاری...",
+    "empty": "موردی یافت نشد",
+    "error": "خطایی رخ داده است",
+    "offline": "اتصال اینترنت قطع است",
+    "reconnecting": "در حال اتصال مجدد...",
+    "connected": "متصل",
+    "disconnected": "ارتباط قطع است",
+    "pending": "در انتظار",
+    "confirmed": "تایید شده",
+    "reversed": "ابطال شده"
+  },
+  "financial": {
+    "toman": "تومان",
+    "netBalance": "موجودی خالص",
+    "youAreOwed": "طلب شما",
+    "youOwe": "بدهی شما",
+    "settled": "تسویه شده",
+    "totalExpenses": "مجموع هزینه‌ها",
+    "budget": "بودجه",
+    "remaining": "باقی‌مانده"
+  },
+  "theme": {
+    "light": "روشن",
+    "dark": "تاریک",
+    "system": "خودکار",
+    "toggle": "تغییر تم"
+  },
+  "language": {
+    "fa": "فارسی",
+    "en": "English",
+    "switch": "تغییر زبان"
+  }
+}

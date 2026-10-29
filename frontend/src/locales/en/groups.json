@@ -1,0 +1,27 @@
+{
+  "list": {
+    "title": "My Groups",
+    "create": "Create Group",
+    "join": "Join via Invite Code",
+    "empty": "You are not a member of any group yet",
+    "emptyDesc": "Create your first pool or join an existing group using an invite code from friends."
+  },
+  "detail": {
+    "tabs": {
+      "expenses": "Expenses",
+      "settlements": "Settlements",
+      "members": "Members",
+      "activities": "Activities",
+      "reports": "Reports"
+    },
+    "budget": "Group Budget",
+    "optimize": "Optimal Settlements",
+    "suggestName": "AI Name Suggestion"
+  },
+  "splits": {
+    "equal": "Equal",
+    "exact": "Exact Amount",
+    "percentage": "Percentage",
+    "itemized": "Itemized"
+  }
+}

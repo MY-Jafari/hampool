@@ -64,7 +64,7 @@
 ## 3. Progress Tracker (update after each phase)
 
 - [x] **Phase 0** — Analysis & contract extraction
-- [ ] **Phase 1** — Foundation: design system, i18n/RTL, assets, app shell
+- [x] **Phase 1** — Foundation: design system, i18n/RTL, assets, app shell
 - [ ] **Phase 2** — Auth screens (login, register + OTP) & route guards
 - [ ] **Phase 3** — Dashboard & Groups list/create/join
 - [ ] **Phase 4** — Group detail + Expenses (all 4 split types)

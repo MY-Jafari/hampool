@@ -12,7 +12,9 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['Vazirmatn', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Vazirmatn', 'Inter', 'system-ui', 'sans-serif'],
+        vazir: ['Vazirmatn', 'system-ui', 'sans-serif'],
+        inter: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -52,14 +54,31 @@ const config: Config = {
           DEFAULT: 'hsl(var(--ai))',
           foreground: 'hsl(var(--ai-foreground))',
         },
+        owed: {
+          DEFAULT: 'hsl(var(--owed))',
+          foreground: 'hsl(var(--owed-foreground))',
+        },
+        owing: {
+          DEFAULT: 'hsl(var(--owing))',
+          foreground: 'hsl(var(--owing-foreground))',
+        },
+        settled: {
+          DEFAULT: 'hsl(var(--settled))',
+          foreground: 'hsl(var(--settled-foreground))',
+        },
+        pending: {
+          DEFAULT: 'hsl(var(--pending))',
+          foreground: 'hsl(var(--pending-foreground))',
+        },
         success: 'hsl(var(--success))',
         danger: 'hsl(var(--danger))',
         warning: 'hsl(var(--warning))',
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        xl: 'var(--radius)',
+        lg: 'calc(var(--radius) - 2px)',
+        md: 'calc(var(--radius) - 4px)',
+        sm: 'calc(var(--radius) - 6px)',
       },
       keyframes: {
         'accordion-down': {
@@ -70,14 +89,19 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'fade-in': {
+          from: { opacity: '0', transform: 'translateY(4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
       },
       boxShadow: {
-        card: '0 1px 2px 0 rgb(0 0 0 / 0.25), 0 1px 3px 0 rgb(0 0 0 / 0.2)',
-        'card-hover': '0 4px 12px -2px rgb(0 0 0 / 0.4)',
+        card: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        'card-hover': '0 8px 24px -4px rgb(0 0 0 / 0.2)',
         glow: '0 0 0 1px hsl(var(--primary) / 0.3), 0 4px 20px -4px hsl(var(--primary) / 0.35)',
       },
     },

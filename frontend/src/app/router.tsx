@@ -20,11 +20,12 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       { path: 'groups', element: <GroupsPage /> },
       { path: 'groups/:groupId', element: <GroupDetailPage /> },
       { path: 'profile', element: <ProfilePage /> },
-      { path: '*', element: <Navigate to="/" replace /> },
+      { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

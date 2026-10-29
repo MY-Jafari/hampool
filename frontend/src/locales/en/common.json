@@ -1,0 +1,62 @@
+{
+  "brand": {
+    "name": "HamPool",
+    "tagline": "Frictionless Shared Expense Splitting"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "groups": "Groups",
+    "profile": "Profile",
+    "settings": "Settings",
+    "newGroup": "New Group",
+    "logout": "Log Out"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "back": "Back",
+    "close": "Close",
+    "submit": "Submit",
+    "search": "Search...",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "share": "Share"
+  },
+  "status": {
+    "loading": "Loading...",
+    "empty": "No items found",
+    "error": "Something went wrong",
+    "offline": "You are offline",
+    "reconnecting": "Reconnecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "reversed": "Reversed"
+  },
+  "financial": {
+    "toman": "Toman",
+    "netBalance": "Net Balance",
+    "youAreOwed": "You are owed",
+    "youOwe": "You owe",
+    "settled": "Settled",
+    "totalExpenses": "Total Expenses",
+    "budget": "Budget",
+    "remaining": "Remaining"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "toggle": "Toggle Theme"
+  },
+  "language": {
+    "fa": "فارسی",
+    "en": "English",
+    "switch": "Switch Language"
+  }
+}

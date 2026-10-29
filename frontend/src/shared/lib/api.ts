@@ -13,6 +13,8 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const lang = typeof localStorage !== 'undefined' ? (localStorage.getItem('hampool.lang') || 'fa') : 'fa';
+  config.headers['Accept-Language'] = lang;
   return config;
 });
 
