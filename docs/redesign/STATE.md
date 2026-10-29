@@ -1,8 +1,8 @@
 # HamPool Redesign — Project State
 
 ## Status
-- **Current Phase:** Phase 4 completed.
-- **Next Phase:** Phase 5 — Settlements, optimal settlement, WebSocket notifications.
+- **Current Phase:** Phase 5 completed.
+- **Next Phase:** Phase 6 — Members/invite/QR, AI name, Reports, Profile, error pages.
 
 ## Decisions Made
 - **API Contracts:** Fully extracted in `docs/redesign/ANALYSIS.md`. Unwired backend `transfer-ownership` logged in `BACKEND_CHANGE_REQUESTS.md`.
@@ -11,8 +11,9 @@
 - **Fonts & RTL:** Self-hosted Vazirmatn & Inter via `@fontsource`. `LanguageProvider` wraps app in Radix `DirectionProvider`; strictly logical CSS properties (`ms-*`, `me-*`, `ps-*`, `pe-*`).
 - **Formatting Layer:** `src/shared/lib/format` (15/15 unit tests passing).
 - **Auth Flow & UX:** Redesigned Login and 2-step Register with `Stepper`. Zod schemas with localized messages and Persian digit normalization. Rate limiting (429/403) handles countdown timers. Show-password eye toggle. 6-slot `OtpInput` with auto-advance and resend timer. Single-flight token refresh interceptor. 6 MSW tests passing.
-- **Dashboard & Groups:** Redesigned `DashboardPage` with semantic balance cards (`owed`/`owing`), per-group balance chips, recent expenses with split icons. Redesigned `GroupsPage` with live search, sort selector (recent/name/expenses), budget progress bars. `GroupCreateDialog` and `JoinGroupDialog` fully integrated.
-- **Group Detail & Expenses:** Rebuilt `GroupDetailPage` with top summary (budget bar & member balances strip) and 5-tabs shell (Expenses default, Settlements, Members, Activities, Reports). Rebuilt `ExpensesTab` with live search, status filters (all/confirmed/pending), `ExpenseDetailDrawer`, and immutable state handling. Rebuilt `ExpenseFormDialog` supporting all 4 split types (Equal, Exact, Percentage, Itemized) with live validation in `splitCalculations.ts` matching backend contract. Localized `ActivitiesTab` timeline.
+- **Dashboard & Groups:** Redesigned `DashboardPage` and `GroupsPage` with live search, sort selector, budget progress bars, create/join dialogs with `MoneyInput`.
+- **Group Detail & Expenses:** Rebuilt `GroupDetailPage` with top summary (budget bar & member balances strip) and 5-tabs shell. `ExpensesTab` with live search, status filters, `ExpenseDetailDrawer`, and immutable state handling. `ExpenseFormDialog` supporting all 4 split types with live validation in `splitCalculations.ts`.
+- **Settlements, Optimization & Realtime:** Rebuilt `useWebSocket` manager with exponential backoff + random jitter (1s → 30s), relative URL building (`buildWebSocketUrl`), fresh JWT acquisition on reconnect, clean teardown. Rebuilt `useGroupEvents` with 10s sliding event deduplication, granular query cache invalidation per event type, and localized event message formatter. Rebuilt `SettlementsTab` (receiver-only confirm, two-party reverse), `SettlementFormDialog` with `MoneyInput`, `OptimizeDialog` with 409 stale balance prompt, and `NotificationBell`.
 
 ## Folder Conventions
 - `src/app/`: Providers, router, layout shell, auth guards (`RequireAuth`).
@@ -23,7 +24,7 @@
 - `src/shared/lib/format/`: Numbers, currency (Toman), Jalali/Gregorian dates, digit normalization.
 
 ## i18n Key Naming Scheme
-- Pattern: `<namespace>.<section>.<key>` (e.g. `groups.expenses.confirmExpense`, `groups.expenseForm.createTitle`).
+- Pattern: `<namespace>.<section>.<key>` (e.g. `groups.settlements.confirmSettlement`, `groups.optimize.staleError`).
 - Stored under `src/locales/fa/*.json` and `src/locales/en/*.json`.
 
 ## Component Inventory Status
@@ -31,7 +32,8 @@
 - Auth Components: `AuthShell`, `LoginPage`, `RegisterPage` redesigned.
 - Dashboard & Groups Components: `DashboardPage`, `GroupsPage`, `GroupCreateDialog`, `JoinGroupDialog` redesigned.
 - Detail & Expense Components: `GroupDetailPage`, `ExpensesTab`, `ExpenseFormDialog`, `ExpenseDetailDrawer`, `ActivitiesTab` redesigned.
-- Test Suite: 36 unit & MSW tests passing (15 format + 6 auth + 6 groups + 9 expenses/splits).
+- Settlements & Realtime Components: `SettlementsTab`, `SettlementFormDialog`, `OptimizeDialog`, `NotificationBell`, `useWebSocket`, `useGroupEvents` redesigned.
+- Test Suite: 44 unit & MSW tests passing (15 format + 6 auth + 6 groups + 9 expenses + 8 settlements/events).
 
 ## Known Issues & Notes
 - Dev OTP: Backend logs TOTP code to console logger; dev builds show hint in OTP view.

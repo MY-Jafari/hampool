@@ -1,17 +1,21 @@
+import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, CheckCircle2, PlusCircle, Undo2, Wallet } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeftRight, ArrowRight, CheckCircle2, PlusCircle, RotateCcw, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { ErrorState } from '@/shared/components/ErrorState';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { StatusBadge } from '@/shared/components/ui/status-badge';
+import { Money } from '@/shared/components/ui/money';
+import { DateText } from '@/shared/components/ui/date-text';
+import { UserAvatar } from '@/shared/components/ui/avatar';
 import { confirmSettlement, listSettlements, reverseSettlement } from '@/features/groups/api';
 import { toastError } from '@/shared/lib/errors';
-import { formatDateTime, formatToman, settlementStatusLabel } from '@/shared/lib/formats';
+import { formatNumber } from '@/shared/lib/format';
 import type { Group, Membership, Settlement } from '@/shared/types/api';
 import { OptimizeDialog } from './OptimizeDialog';
 import { SettlementFormDialog } from './SettlementFormDialog';
@@ -23,7 +27,10 @@ interface SettlementsTabProps {
 }
 
 export function SettlementsTab({ group, myId, members }: SettlementsTabProps) {
+  const { t, i18n } = useTranslation(['groups', 'common']);
+  const lang = (i18n.language?.startsWith('fa') ? 'fa' : 'en') as 'fa' | 'en';
   const queryClient = useQueryClient();
+
   const [createOpen, setCreateOpen] = useState(false);
   const [optimizeOpen, setOptimizeOpen] = useState(false);
   const [toReverse, setToReverse] = useState<Settlement | null>(null);
@@ -33,23 +40,21 @@ export function SettlementsTab({ group, myId, members }: SettlementsTabProps) {
     queryFn: () => listSettlements(group.id),
   });
 
-  const nameOf = (userId: number): string => {
-    const m = members.find((x) => x.user === userId);
-    return m ? m.user_name || m.user_phone : `کاربر ${userId}`;
-  };
-
-  const statusVariant = (status: Settlement['status']): 'warning' | 'success' | 'secondary' => {
-    if (status === 'pending') return 'warning';
-    if (status === 'confirmed') return 'success';
-    return 'secondary';
-  };
+  const nameOf = useCallback(
+    (userId: number): string => {
+      const m = members.find((x) => x.user === userId);
+      return m ? m.user_name || m.user_phone : `کاربر ${userId}`;
+    },
+    [members],
+  );
 
   const confirmMutation = useMutation({
     mutationFn: (id: number) => confirmSettlement(group.id, id),
     onSuccess: () => {
-      toast.success('تسویه تایید شد. ✅');
+      toast.success(t('settlements.confirmSuccess'));
       void queryClient.invalidateQueries({ queryKey: ['group-settlements', group.id] });
       void queryClient.invalidateQueries({ queryKey: ['group-balances', group.id] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] });
     },
     onError: (err) => toastError(err),
   });
@@ -57,127 +62,197 @@ export function SettlementsTab({ group, myId, members }: SettlementsTabProps) {
   const reverseMutation = useMutation({
     mutationFn: (id: number) => reverseSettlement(group.id, id),
     onSuccess: () => {
-      toast.success('تسویه ابطال شد.');
+      toast.success(t('settlements.reverseSuccess'));
       setToReverse(null);
       void queryClient.invalidateQueries({ queryKey: ['group-settlements', group.id] });
       void queryClient.invalidateQueries({ queryKey: ['group-balances', group.id] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] });
     },
     onError: (err) => toastError(err),
   });
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {settlementsQuery.data?.length.toLocaleString('fa-IR') ?? '—'} تسویه
+      {/* Header Toolbar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-muted-foreground">
+          {t('settlements.recordedCount', {
+            count: formatNumber(settlementsQuery.data?.length ?? 0, lang),
+          })}
         </p>
-        <div className="flex gap-2">
-          <Button variant="ai" size="sm" onClick={() => setOptimizeOpen(true)}>
-            <Wallet className="size-4" />
-            پیشنهاد بهینه
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ai"
+            size="sm"
+            onClick={() => setOptimizeOpen(true)}
+            className="gap-1.5"
+          >
+            <Sparkles className="size-4" />
+            <span>{t('settlements.optimize')}</span>
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
+
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
             <PlusCircle className="size-4" />
-            تسویه جدید
+            <span>{t('settlements.newSettlement')}</span>
           </Button>
         </div>
       </div>
 
+      {/* Skeletons */}
       {settlementsQuery.isLoading && (
         <div className="space-y-2">
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
         </div>
       )}
 
+      {/* Error */}
       {settlementsQuery.isError && (
-        <ErrorState error={settlementsQuery.error} onRetry={() => void settlementsQuery.refetch()} />
-      )}
-
-      {!settlementsQuery.isLoading && !settlementsQuery.isError && (settlementsQuery.data?.length ?? 0) === 0 && (
-        <EmptyState
-          icon={ArrowLeftRight}
-          title="تسویه‌ای ثبت نشده"
-          description="پس از ثبت هزینه‌ها، بدهی‌ها را با تسویه جبران کنید — یا از پیشنهاد بهینه استفاده کنید."
-          action={
-            <Button onClick={() => setCreateOpen(true)}>
-              <PlusCircle className="size-4" />
-              تسویه جدید
-            </Button>
-          }
+        <ErrorState
+          error={settlementsQuery.error}
+          onRetry={() => void settlementsQuery.refetch()}
+          title={t('dashboard.loadFailed')}
         />
       )}
 
-      {!settlementsQuery.isLoading && !settlementsQuery.isError && (settlementsQuery.data?.length ?? 0) > 0 && (
-        <div className="space-y-2">
-          {settlementsQuery.data?.map((settlement) => {
-            const iAmReceiver = settlement.to_user === myId;
-            const iAmInvolved = settlement.from_user === myId || iAmReceiver;
-            const canConfirm = iAmReceiver && settlement.status === 'pending';
-            const canReverse = iAmInvolved && settlement.status === 'confirmed';
-            return (
-              <Card key={settlement.id} className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold">
-                        {nameOf(settlement.from_user)}
-                        <span className="mx-1.5 text-muted-foreground">←</span>
-                        {nameOf(settlement.to_user)}
-                      </p>
-                      <Badge variant={statusVariant(settlement.status)}>
-                        {settlementStatusLabel[settlement.status]}
-                      </Badge>
+      {/* Empty State */}
+      {!settlementsQuery.isLoading &&
+        !settlementsQuery.isError &&
+        (settlementsQuery.data?.length ?? 0) === 0 && (
+          <EmptyState
+            icon={ArrowLeftRight}
+            title={t('settlements.emptyTitle')}
+            description={t('settlements.emptyDesc')}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
+                  <PlusCircle className="size-4" />
+                  <span>{t('settlements.newSettlement')}</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ai"
+                  onClick={() => setOptimizeOpen(true)}
+                  className="gap-1.5"
+                >
+                  <Sparkles className="size-4" />
+                  <span>{t('settlements.optimize')}</span>
+                </Button>
+              </div>
+            }
+          />
+        )}
+
+      {/* Settlements List */}
+      {!settlementsQuery.isLoading &&
+        !settlementsQuery.isError &&
+        (settlementsQuery.data?.length ?? 0) > 0 && (
+          <div className="space-y-2.5">
+            {settlementsQuery.data?.map((settlement) => {
+              const iAmReceiver = settlement.to_user === myId;
+              const iAmInvolved = settlement.from_user === myId || iAmReceiver;
+              const canConfirm = iAmReceiver && settlement.status === 'pending';
+              const canReverse = iAmInvolved && settlement.status === 'confirmed';
+
+              const fromName = nameOf(settlement.from_user);
+              const toName = nameOf(settlement.to_user);
+
+              return (
+                <Card
+                  key={settlement.id}
+                  className="p-4 transition-all duration-150 border-border hover:border-primary/40 hover:shadow-card-hover"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 min-w-0 text-sm font-semibold text-foreground">
+                          <UserAvatar name={fromName} className="size-6 shrink-0" />
+                          <span className="truncate">{fromName}</span>
+
+                          <ArrowRight className="size-3.5 shrink-0 text-muted-foreground rtl:rotate-180" />
+
+                          <UserAvatar name={toName} className="size-6 shrink-0" />
+                          <span className="truncate">{toName}</span>
+                        </div>
+
+                        <StatusBadge status={settlement.status} />
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        <DateText date={settlement.created_at} withTime />
+                      </div>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(settlement.created_at)}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <p className="text-sm font-bold">{formatToman(settlement.amount)}</p>
-                    {canConfirm && (
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="size-8 text-success"
-                        title="تایید دریافت"
-                        onClick={() => confirmMutation.mutate(settlement.id)}
-                        disabled={confirmMutation.isPending}
-                      >
-                        <CheckCircle2 className="size-4" />
-                      </Button>
-                    )}
-                    {canReverse && (
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="size-8 text-destructive"
-                        title="ابطال تسویه"
-                        onClick={() => setToReverse(settlement)}
-                        disabled={reverseMutation.isPending}
-                      >
-                        <Undo2 className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
-      <SettlementFormDialog open={createOpen} onOpenChange={setCreateOpen} groupId={group.id} members={members} />
-      <OptimizeDialog open={optimizeOpen} onOpenChange={setOptimizeOpen} groupId={group.id} members={members} />
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Money amount={settlement.amount} className="text-base font-bold" />
 
+                      <div className="flex items-center gap-1">
+                        {canConfirm && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="size-8 text-owed border-owed/30 hover:bg-owed/10"
+                            title={t('settlements.confirmSettlement')}
+                            onClick={() => confirmMutation.mutate(settlement.id)}
+                            disabled={confirmMutation.isPending}
+                          >
+                            <CheckCircle2 className="size-4" />
+                          </Button>
+                        )}
+
+                        {canReverse && (
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="size-8 text-muted-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10"
+                            title={t('settlements.reverseSettlement')}
+                            onClick={() => setToReverse(settlement)}
+                            disabled={reverseMutation.isPending}
+                          >
+                            <RotateCcw className="size-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+      {/* New Settlement Dialog */}
+      <SettlementFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        groupId={group.id}
+        members={members}
+      />
+
+      {/* Optimal Settlement Dialog */}
+      <OptimizeDialog
+        open={optimizeOpen}
+        onOpenChange={setOptimizeOpen}
+        groupId={group.id}
+        members={members}
+      />
+
+      {/* Reverse Confirmation Dialog */}
       <ConfirmDialog
         open={Boolean(toReverse)}
         onOpenChange={(o) => !o && setToReverse(null)}
-        title="ابطال تسویه"
+        title={t('settlements.reverseConfirmTitle')}
         description={
           toReverse
-            ? `تسویهٔ ${formatToman(toReverse.amount)} بین ${nameOf(toReverse.from_user)} و ${nameOf(toReverse.to_user)} ابطال شود؟`
+            ? t('settlements.reverseConfirmDesc', {
+                amount: `${toReverse.amount.toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-US')} تومان`,
+                from: nameOf(toReverse.from_user),
+                to: nameOf(toReverse.to_user),
+              })
             : undefined
         }
-        confirmLabel="ابطال"
+        confirmLabel={t('settlements.reverseSettlement')}
         destructive
         loading={reverseMutation.isPending}
         onConfirm={() => toReverse && reverseMutation.mutate(toReverse.id)}
