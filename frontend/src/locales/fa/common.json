@@ -9,6 +9,9 @@
     "profile": "پروفایل",
     "settings": "تنظیمات",
     "newGroup": "گروه جدید",
+    "collapse": "بستن منو",
+    "expand": "باز کردن منو",
+    "menu": "منو",
     "logout": "خروج از حساب"
   },
   "actions": {

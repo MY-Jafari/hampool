@@ -9,6 +9,9 @@
     "profile": "Profile",
     "settings": "Settings",
     "newGroup": "New Group",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "menu": "Menu",
     "logout": "Log Out"
   },
   "actions": {

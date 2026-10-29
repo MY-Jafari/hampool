@@ -1,16 +1,35 @@
-import { LayoutDashboard, LogOut, PlusCircle, User, Users } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PlusCircle,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { logout } from '@/features/auth/api';
 import { useProfile } from '@/features/auth/useProfile';
 import { useAuthStore } from '@/features/auth/store';
+import { useNavStore } from '@/app/navStore';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { UserAvatar } from '@/shared/components/ui/avatar';
 import { Button } from '@/shared/components/ui/button';
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher';
 import { Logo } from '@/assets/Logo';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +41,10 @@ import {
 import { cn } from '@/shared/lib/utils';
 
 export function Sidebar() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const { user } = useAuthStore();
+  const { collapsed, toggleCollapsed } = useNavStore();
+  const isRtl = i18n.dir() === 'rtl';
 
   const navItems = [
     { to: '/dashboard', label: t('nav.dashboard', 'داشبورد'), icon: LayoutDashboard },
@@ -32,56 +53,264 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e border-border bg-card/60 backdrop-blur-md px-4 py-6 lg:flex">
-      <Link to="/dashboard" className="mb-8 flex items-center px-2">
-        <Logo variant="full" size={34} />
-      </Link>
-      <nav className="flex flex-1 flex-col gap-1.5">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary/10 text-primary font-semibold'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )
-            }
-          >
-            <Icon className="size-[18px] shrink-0" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
-      <div className="border-t border-border pt-4">
+    <aside
+      className={cn(
+        'sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-border bg-card/70 backdrop-blur-md transition-all duration-300 ease-in-out lg:flex z-40',
+        collapsed ? 'w-[76px] px-2.5 py-5' : 'w-64 px-4 py-6',
+      )}
+    >
+      {/* Top Header: Logo + Toggle Button */}
+      <div
+        className={cn(
+          'mb-6 flex items-center',
+          collapsed ? 'flex-col gap-4 justify-center' : 'justify-between px-1',
+        )}
+      >
         <Link
-          to="/profile"
-          className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-accent transition-colors"
+          to="/dashboard"
+          className={cn(
+            'flex items-center transition-opacity hover:opacity-85',
+            collapsed && 'justify-center',
+          )}
+          title={t('brand.name', 'هم‌پول')}
         >
-          <UserAvatar
-            name={user?.full_name}
-            phone={user?.phone_number}
-            src={user?.avatar}
-            size="sm"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold leading-tight text-foreground">
-              {user?.full_name || user?.phone_number}
-            </p>
-            <p className="truncate text-xs text-muted-foreground font-mono" dir="ltr">
-              {user?.phone_number}
-            </p>
-          </div>
+          {collapsed ? (
+            <Logo variant="mark" size={36} />
+          ) : (
+            <Logo variant="full" size={34} />
+          )}
         </Link>
+
+        {/* Sidebar Toggle Mark / Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="flex size-8 items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
+            >
+              {collapsed ? (
+                isRtl ? (
+                  <ChevronLeft className="size-4" />
+                ) : (
+                  <ChevronRight className="size-4" />
+                )
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side={isRtl ? 'left' : 'right'}>
+            {collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Nav Items List */}
+      <nav className="flex flex-1 flex-col gap-1.5">
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const navLink = (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center rounded-xl text-sm font-medium transition-all',
+                  collapsed
+                    ? 'size-11 justify-center mx-auto'
+                    : 'gap-3 px-3.5 py-2.5',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-semibold shadow-sm shadow-primary/5'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )
+              }
+            >
+              <Icon className="size-[20px] shrink-0" />
+              {!collapsed && <span className="truncate">{label}</span>}
+            </NavLink>
+          );
+
+          if (collapsed) {
+            return (
+              <Tooltip key={to}>
+                <TooltipTrigger asChild>{navLink}</TooltipTrigger>
+                <TooltipContent side={isRtl ? 'left' : 'right'}>
+                  {label}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return navLink;
+        })}
+      </nav>
+
+      {/* Footer User Info */}
+      <div className="border-t border-border pt-4">
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/profile"
+                className="flex size-11 mx-auto items-center justify-center rounded-xl hover:bg-accent transition-colors"
+              >
+                <UserAvatar
+                  name={user?.full_name}
+                  phone={user?.phone_number}
+                  src={user?.avatar}
+                  size="sm"
+                />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side={isRtl ? 'left' : 'right'}>
+              <p className="font-semibold">{user?.full_name || user?.phone_number}</p>
+              <p className="text-[10px] text-muted-foreground" dir="ltr">{user?.phone_number}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Link
+            to="/profile"
+            className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-accent transition-colors"
+          >
+            <UserAvatar
+              name={user?.full_name}
+              phone={user?.phone_number}
+              src={user?.avatar}
+              size="sm"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-tight text-foreground">
+                {user?.full_name || user?.phone_number}
+              </p>
+              <p className="truncate text-xs text-muted-foreground font-mono" dir="ltr">
+                {user?.phone_number}
+              </p>
+            </div>
+          </Link>
+        )}
       </div>
     </aside>
   );
 }
 
+/**
+ * Slide-over Mobile Drawer for navigation (داشبورد ، گروه‌ها ، پروفایل)
+ */
+export function MobileDrawer() {
+  const { t, i18n } = useTranslation('common');
+  const { user } = useAuthStore();
+  const { mobileOpen, setMobileOpen } = useNavStore();
+  const isRtl = i18n.dir() === 'rtl';
+
+  if (!mobileOpen) return null;
+
+  const navItems = [
+    { to: '/dashboard', label: t('nav.dashboard', 'داشبورد'), icon: LayoutDashboard },
+    { to: '/groups', label: t('nav.groups', 'گروه‌ها'), icon: Users },
+    { to: '/profile', label: t('nav.profile', 'پروفایل'), icon: User },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex lg:hidden">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm animate-in fade-in-0 duration-200"
+        onClick={() => setMobileOpen(false)}
+      />
+
+      {/* Drawer Content */}
+      <div
+        className={cn(
+          'relative z-50 flex w-72 max-w-[85vw] flex-col border-border bg-card p-5 shadow-2xl animate-in duration-300',
+          isRtl
+            ? 'slide-in-from-right border-s ms-auto'
+            : 'slide-in-from-left border-e me-auto',
+        )}
+      >
+        {/* Drawer Header */}
+        <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+          <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
+            <Logo variant="full" size={32} />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label={t('common:actions.close', 'بستن')}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Drawer Links */}
+        <nav className="flex flex-1 flex-col gap-2">
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-bold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )
+              }
+            >
+              <Icon className="size-5 shrink-0" />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+
+          <div className="my-2 border-t border-border pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start gap-2"
+              asChild
+              onClick={() => setMobileOpen(false)}
+            >
+              <Link to="/groups?new=1">
+                <PlusCircle className="size-4" />
+                <span>{t('nav.newGroup', 'گروه جدید')}</span>
+              </Link>
+            </Button>
+          </div>
+        </nav>
+
+        {/* Drawer Footer User */}
+        <div className="border-t border-border pt-4">
+          <Link
+            to="/profile"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-accent transition-colors"
+          >
+            <UserAvatar
+              name={user?.full_name}
+              phone={user?.phone_number}
+              src={user?.avatar}
+              size="sm"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {user?.full_name || user?.phone_number}
+              </p>
+              <p className="truncate text-xs text-muted-foreground font-mono" dir="ltr">
+                {user?.phone_number}
+              </p>
+            </div>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BottomNav() {
   const { t } = useTranslation('common');
+  const { toggleMobile } = useNavStore();
 
   const navItems = [
     { to: '/dashboard', label: t('nav.dashboard', 'داشبورد'), icon: LayoutDashboard },
@@ -106,6 +335,16 @@ export function BottomNav() {
           <span>{label}</span>
         </NavLink>
       ))}
+      {/* Mobile Drawer Trigger Pill */}
+      <button
+        type="button"
+        onClick={toggleMobile}
+        className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        aria-label={t('nav.menu', 'منو')}
+      >
+        <Menu className="size-5 shrink-0" />
+        <span>{t('nav.menu', 'منو')}</span>
+      </button>
     </nav>
   );
 }
@@ -114,6 +353,7 @@ export function Header() {
   const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { user, refresh, clear } = useAuthStore();
+  const { collapsed, toggleCollapsed, toggleMobile } = useNavStore();
 
   const handleLogout = async () => {
     try {
@@ -129,13 +369,39 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md lg:px-8">
       <div className="flex items-center gap-3">
+        {/* Toggle Button for Mobile Drawer */}
+        <button
+          type="button"
+          onClick={toggleMobile}
+          className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+          aria-label={t('nav.menu', 'منو')}
+        >
+          <Menu className="size-5" />
+        </button>
+
+        {/* Toggle Button for Desktop Sidebar */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="hidden size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
+          aria-label={collapsed ? t('nav.expand', 'باز کردن منو') : t('nav.collapse', 'بستن منو')}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-5" />
+          ) : (
+            <PanelLeftClose className="size-5" />
+          )}
+        </button>
+
         <Link to="/dashboard" className="flex items-center gap-2 lg:hidden">
           <Logo variant="mark" size={32} />
         </Link>
+
         <h2 className="hidden text-sm font-medium text-muted-foreground lg:block">
-          {t('brand.tagline', 'مدیریت و تسویه آسان هزینه‌های مشترک')}
+          {t('brand.tagline', 'مدیریت و تسهیم آسان هزینه‌های مشترک')}
         </h2>
       </div>
+
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" className="hidden sm:inline-flex gap-1.5" asChild>
           <Link to="/groups?new=1">
@@ -189,15 +455,18 @@ export function AppLayout() {
   useProfile();
 
   return (
-    <div className="flex min-h-dvh bg-background text-foreground">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col pb-16 lg:pb-0">
-        <Header />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <Outlet />
-        </main>
+    <TooltipProvider delayDuration={150}>
+      <div className="flex min-h-dvh bg-background text-foreground">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col pb-16 lg:pb-0">
+          <Header />
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
+            <Outlet />
+          </main>
+        </div>
+        <BottomNav />
+        <MobileDrawer />
       </div>
-      <BottomNav />
-    </div>
+    </TooltipProvider>
   );
 }
