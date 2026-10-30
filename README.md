@@ -1,535 +1,360 @@
 <div dir="rtl">
 
-<h1 align="center">💰 هم‌پول (HamPool) — مدیریت هزینه‌های مشترک</h1>
+<p align="center">
+  <img src="screenshots/logo.svg" alt="HamPool Logo" width="120" />
+</p>
+
+<h1 align="center">💰 هم‌پول (HamPool) — پلتفرم جامع مدیریت هزینه‌های مشترک</h1>
 
 <p align="center">
-  پلتفرم کامل مدیریت هزینه‌های مشترک بین دوستان، خانواده و هم‌سفرها — بک‌اند Django REST + فرانت‌اند React، با تسویه‌ی هوشمند و اعلان‌های لحظه‌ای.
+  <b>سامانه هوشمند ثبت دانگ و هزینه‌های گروهی بین دوستان، خانواده و هم‌سفرها</b><br />
+  بک‌اند پرقدرت Django REST + فرانت‌اند مدرن React & Tailwind CSS با معماری PWA، تسویه‌ی بهینه، اعلان‌های لحظه‌ای WebSocket و دستیار نام‌گذاری هوش مصنوعی.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
-  <img src="https://img.shields.io/badge/Django_REST_Framework-red?style=for-the-badge&logo=django&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
   <img src="https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white" />
   <img src="https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socket.io&logoColor=white" />
   <img src="https://img.shields.io/badge/Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white" />
-  <img src="https://img.shields.io/badge/Tests-211%20passed-10B981?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Tests-268%20Passed-10B981?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/CI%2FCD-GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white" />
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" />
 </p>
 
 ---
 
-## 🖼️ پیش‌نمایش
+## 🖼️ پیش‌نمایش محیط کاربری
 
 <p align="center">
-  <img src="screenshots/dashboard.png" alt="داشبورد هم‌پول" width="340" />
+  <img src="screenshots/dashboard.png" alt="داشبورد هم‌پول" width="400" />
   <br />
-  <sub><b>داشبورد</b> — طلب/بدهی من، گروه‌ها و آخرین هزینه‌ها</sub>
+  <sub><b>داشبورد مالی</b> — تراز کلی طلب/بدهی، خلاصه‌ی وضعیت گروه‌ها، آخرین هزینه‌ها و اقدامات سریع</sub>
 </p>
 
 <p align="center">
-  <img src="screenshots/groups.png" alt="لیست گروه‌ها" width="340" />
+  <img src="screenshots/groups.png" alt="لیست گروه‌ها" width="400" />
   <br />
-  <sub><b>گروه‌ها</b> — لیست گروه‌های من، ساخت گروه جدید و عضویت با کد دعوت</sub>
+  <sub><b>مدیریت گروه‌ها</b> — فیلتر آنی، پیشرفت بودجه، ساخت گروه جدید و عضویت با کد دعوت یا QR</sub>
 </p>
 
 <p align="center">
-  <img src="screenshots/group-detail.png" alt="جزئیات گروه" width="340" />
+  <img src="screenshots/group-detail.png" alt="جزئیات گروه" width="400" />
   <br />
-  <sub><b>جزئیات گروه</b> — بودجه، موجودی اعضا و ۶ تب (هزینه‌ها، تسویه‌ها، اعضا، فعالیت‌ها، گزارش‌ها)</sub>
+  <sub><b>صفحه تفصیلی گروه</b> — تفکیک ۶ تب کاربردی: هزینه‌ها (۴ مدل تقسیم)، تسویه‌ها و بهینه‌سازی، اعضا و نقش‌ها، فعالیت‌ها و گزارش‌ها</sub>
 </p>
 
 <p align="center">
-  <img src="screenshots/login.png" alt="صفحه ورود" width="340" />
+  <img src="screenshots/login.png" alt="صفحه ورود" width="400" />
   <br />
-  <sub><b>ورود</b> — ورود با شماره موبایل و رمز عبور</sub>
+  <sub><b>ورود و ثبت‌نام امن</b> — اعتبارسنجی دو مرحله‌ای با شماره موبایل و کد یک‌بار مصرف OTP</sub>
 </p>
 
 ---
 
-## 🌊 درباره پروژه
+## 🌊 درباره هم‌پول
 
-**هم‌پول** به گروهی از افراد کمک می‌کند هزینه‌های مشترک را ثبت، تقسیم و تسویه کنند:
+محاسبه و تقسیم هزینه‌ها در سفرهای دوستانه، زندگی هم‌خانگی یا دورهمی‌های کاری معمولاً پیچیده، زمان‌بر و مستعد خطاست. **هم‌پول** این دغدغه را به‌سادگی حل می‌کند:
 
-- **یک نفر هزینه را ثبت می‌کند** (مثلاً شام رستوران، تاکسی، خرید گروهی) و دیگران را شریک می‌کند.
-- هزینه به ۴ روش قابل تقسیم است: **مساوی، مبلغ دقیق، درصدی، آیتمی**.
-- سیستم به‌صورت خودکار **موجودی (بالانس)** هر عضو را حساب می‌کند: چه‌کسی چقدر طلب دارد و چه‌کسی چقدر بدهکار است.
-- با دکمه‌ی «پیشنهاد تسویه بهینه»، الگوریتم کمترین تعداد پرداخت برای صاف‌کردن همه‌ی بدهی‌ها را پیشنهاد می‌دهد.
-- همه‌ی رویدادها (ثبت هزینه، تایید، تسویه، عضویت و...) به‌صورت **زنده از طریق WebSocket** به اعضا اعلان می‌شود.
-- گزارش هفتگی PDF به‌صورت خودکار تولید و ایمیل می‌شود.
+1. **ثبت انعطاف‌پذیر هزینه‌ها:** هزینه‌ها می‌توانند به ۴ شیوه مختلف بین اعضا تسهیم شوند: **مساوی**، **مبلغ دقیق**، **درصدی** و **آیتمی** (بر اساس مصرف مجزای اقلام).
+2. **محاسبه هوشمند بالانس:** به‌محض ثبت یا تغییر هر هزینه، تراز خالص (طلب/بدهی) تمامی اعضا بلافاصله به‌روزرسانی می‌شود.
+3. **پیشنهاد تسویه بهینه (Debt Simplification):** سیستم با تحلیل شبکه بدهی‌ها، کمترین تعداد جابجایی وجه ممکن را برای صفر کردن کامل حساب‌ها پیشنهاد می‌کند (با محافظت همزمانی `balance_version`).
+4. **همگام‌سازی بلادرنگ (WebSocket):** با بهره‌گیری از معماری Outbox و Django Channels، هر تغییری در کسری از ثانیه در صفحه سایر اعضای آنلاین منعکس می‌شود.
+5. **دستیار هوش مصنوعی نام‌گذاری:** با استفاده از Google Gemini و تحلیل شرح هزینه‌ها و حال‌وهوای گروه، اسامی جذاب فارسی و انگلیسی برای گروه پیشنهاد داده می‌شود.
+6. **فرانت‌اند مدرن با قابلیت PWA:** رابط کاربری واکنش‌گرا با پشتیبانی کامل از دارک‌مود/لایت‌مود، فونت‌های بهینه‌شده فارسی و انگلیسی، منوی کشویی جمع‌شونده و عملکرد آفلاین.
 
-### معماری
+---
+
+## ✨ ویژگی‌های شاخص سیستم
+
+| بخش | ویژگی‌ها و قابلیت‌های پیاده‌سازی شده |
+| :--- | :--- |
+| 🔐 **احراز هویت و امنیت** | ثبت‌نام با شماره همراه معتبر ایران · تایید دومرحله‌ای با OTP (الگوریتم TOTP شش‌رقمی) · ورود با JWT (Access و Refresh) · بلک‌لیست توکن در خروج · کنترل سقف درخواست‌ها (Throttling) |
+| 👥 **مدیریت پیشرفته گروه‌ها** | تعریف بودجه و پایش درصد مصرف · صدور کد دعوت اختصاصی ۸ کاراکتری زمان‌دار · بارکد دو بعدی (QR Code) اختصاصی جهت ورود سریع · سیستم کنترل دسترسی سطوح عضویت (مالک، مدیر، عضو عادی) · امکان انتقال مالکیت گروه |
+| 💸 **تسهیم پیشرفته هزینه‌ها** | ۴ الگوریتم تقسیم: **مساوی**، **مبلغ دقیق**، **درصدی** و **آیتمی (تفکیک جزئی ریزفاکتور و شرکا)** · تایید دو مرحله‌ای هزینه‌ها · امکان حذف و فریز ویرایش برای هزینه‌های قطعی |
+| 📊 **تسویه و بهینه‌سازی مالی** | تسویه حساب دوجانبه مستقیم · فرآیند تایید دریافت وجه توسط طلبکار · قابلیت ابطال تسویه · **پیشنهاد تسویه بهینه با حداقل تراکنش** برای رفع زنجیره بدهی چندنفره |
+| 🔔 **رویدادهای زنده بلادرنگ** | WebSocket اختصاصی مبتنی بر Django Channels و Redis · الگوی قابلیت اطمینان **Outbox Pattern** جهت تضمین ارسال رویدادها حتی در صورت قطعی لحظه‌ای |
+| 🤖 **دستیار نام‌گذاری هوش مصنوعی** | مجهز به پرامپت مهندسی‌شده و بومی در ماژول Gemini AI برای پیشنهاد نام‌های خلاقانه فارسی بر اساس دسته‌بندی و آیتم‌های مصرفی گروه (سفر، هم‌خانگی، کاری، کافه) |
+| 📱 **تجربه کاربری و رابط فرانت‌اند** | بازنویسی کامل با React 18 + Vite + Tailwind CSS · پنل ناوبری کشویی (Collapsible Drawer) با بالانس آیکون‌ها و تول‌تیپ هوشمند · پشتیبانی دوزبانه زنده (فارسی RTL / انگلیسی LTR) · پشتیبانی از حالت تیره (Dark Mode) و روشن |
+| 📶 **نصب‌پذیری و کارکرد PWA** | قابلیت نصب روی موبایل و دسکتاپ به عنوان Progressive Web App · Service Worker و استراتژی کش آفلاین · هشدار وضعیت اتصال اینترنت |
+| 📄 **گزارش‌گیری PDF** | ایجاد خودکار صورت‌حساب‌های دوره‌ای و هفتگی PDF با WeasyPrint و رسم نمودارهای تحلیلی Matplotlib با قابلیت ارسال ایمیل |
+| ⏱️ **پردازش پس‌زمینه و صف کارها** | اجرای تسک‌های سنگین با Celery Worker و مدیریت زمان‌بندی با Celery Beat · داشبورد نظارتی مانیتورینگ Flower |
+| 🐳 **محیط کانتینری Docker** | استک کامل ۷ سرویسه هماهنگ توسعه و پروداکشن (PostgreSQL 16 + Redis 7 + Django + Celery Worker + Celery Beat + Flower + Nginx) |
+
+---
+
+## 🛠️ پشته فناوری (Tech Stack)
+
+### بک‌اند (Backend)
+- **زبان و فریم‌ورک:** Python 3.12+ · Django 5.2 · Django REST Framework (DRF)
+- **دیتابیس:** PostgreSQL 16 (توسعه و پروداکشن) · SQLite3 (پشتیبانی تست مستقل)
+- **صف وظایف و حافظه موقت:** Redis 7 · Celery 5.4 · Celery Beat
+- **ارتباطات بلادرنگ:** Django Channels · Daphne / Uvicorn · Redis Channel Layer
+- **تولید گزارشات:** WeasyPrint · Matplotlib
+- **هوش مصنوعی:** Google Gemini API (`google.genai` / `google-generativeai`)
+- **سرو و مستندسازی:** drf-yasg (OpenAPI / Swagger / ReDoc) · Nginx Reverse Proxy
+- **تست‌ها:** pytest · pytest-django (۲۱۱ تست واحد و یکپارچه)
+
+### فرانت‌اند (Frontend)
+- **هسته و ابزار بیلد:** React 18 · TypeScript (Strict Mode) · Vite 5
+- **طراحی و استایلینگ:** Tailwind CSS · Radix UI (shadcn/ui primitives) · Lucide Icons
+- **مدیریت دیتا و کش:** TanStack Query (React Query v5) · Axios با مدیریت صف Refresh Token تک‌پروازی
+- **مدیریت وضعیت:** Zustand (وضعیت اپلیکیشن و اعلان‌ها)
+- **چندزبانه و فونت:** react-i18next (فارسی/انگلیسی) · قلم‌های رسمی Vazirmatn و Inter
+- **اعتبارسنجی و فرم‌ها:** React Hook Form · Zod
+- **نمودارها:** Recharts
+- **قابلیت‌های PWA:** vite-plugin-pwa · Workbox (Service Worker)
+- **تست و کیفیت:** Vitest · React Testing Library · MSW (Mock Service Worker) (۵۷ تست واحد) · ESLint
+
+---
+
+## 🏗️ معماری سیستم
 
 <div dir="ltr">
 
 ```text
-┌─────────────┐            ┌─────────────────────────────────────────┐
-│   Browser   │  :80 ────► │  Nginx (reverse proxy + SPA)           │
-│  (SPA)      │  ◄──────── │  nginx/default.conf                    │
-└─────────────┘            └──────┬──────────────────┬─────────────┘
-                                  │ /api /ws /media   │ /static /media
-                                  ▼                   ▼
-┌──────────────────────────┐   ┌──────────────────────────────────┐
-│  Django REST (uvicorn)   │   │  PostgreSQL 16 (db)              │
-│  apps/accounts           │   └──────────────────────────────────┘
-│  apps/groups             │
-│  apps/ai · apps/reports   │   ┌──────────────────────────────────┐
-└───────────┬──────────────┘   │  Redis 7 (cache + broker)        │
-            │ Outbox pattern   └──────────────┬───────────────────┘
-            ▼                                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Celery Worker + Beat (reports, outbox, notifications)      │
-│  Flower (monitoring) → http://localhost:5555                │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│               Browser / PWA Client                     │
+│      React 18 + Tailwind CSS + Lucide Icons            │
+└──────────────────────────┬─────────────────────────────┘
+                           │ HTTP / WebSocket (:80)
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             Nginx Reverse Proxy & Static               │
+│   /          → Serves SPA Dist (Vite Build)            │
+│   /api/      → Proxy to Django Backend (:8000)         │
+│   /ws/       → Upgrade to WebSocket (:8000)            │
+│   /media/    → Static & Uploaded Media Files           │
+└────────────┬─────────────────────────────┬─────────────┘
+             │                             │
+             ▼                             ▼
+┌───────────────────────────┐  ┌─────────────────────────┐
+│   Django REST & Channels  │  │   PostgreSQL 16 (db)    │
+│   - apps/accounts (Auth)  │  └─────────────────────────┘
+│   - apps/groups (Finance) │  ┌─────────────────────────┐
+│   - apps/ai (Gemini)      │  │   Redis 7 (cache/layer) │
+│   - apps/reports (PDF)    │  └────────────┬────────────┘
+│   - apps/outbox (Events)  │               │
+└────────────┬──────────────┘               ▼
+             │ Transactional Outbox  ┌─────────────────────────┐
+             └──────────────────────►│ Celery Worker & Beat    │
+                                     │ Background Tasks & Jobs │
+                                     └────────────┬────────────┘
+                                                  ▼
+                                     ┌─────────────────────────┐
+                                     │ Flower Monitoring UI    │
+                                     │ http://localhost:5555   │
+                                     └─────────────────────────┘
 ```
 
 </div>
 
 ---
 
-## ✨ ویژگی‌های اصلی
+## 🚀 راه‌اندازی سریع با داکر
 
-| دسته | جزئیات |
-|------|--------|
-| 🔐 **احراز هویت** | ثبت‌نام با شماره موبایل + کد OTP (۶ رقمی TOTP) · ورود با JWT (Access/Refresh) · بلاک‌لیست refresh پس از خروج · محدودیت نرخ (rate limiting) |
-| 👥 **گروه‌ها** | ساخت گروه با بودجه · کد دعوت ۸ کاراکتری با انقضا · عضویت با کد · QR کد دعوت · نقش‌ها (admin/member) · انتقال مالکیت |
-| 💸 **هزینه‌ها** | ۴ نوع تقسیم: **مساوی / مبلغ دقیق / درصدی / آیتمی** · تایید و حذف · جلوگیری از ویرایش هزینه‌ی تاییدشده |
-| 📊 **بالانس و تسویه** | محاسبه‌ی خودکار طلب/بدهی هر عضو · تسویه‌ی دوجانبه (ایجاد/تایید/ابطال) · **پیشنهاد تسویه بهینه** (حداقل تعداد پرداخت) با محافظت از داده‌ی قدیمی (balance_version) |
-| 🔔 **اعلان‌های زنده** | WebSocket یک‌طرفه (Django Channels + Redis) — رویدادهای group_state_changed به‌صورت real-time + Outbox pattern برای تحویل اطمینان‌پذیر |
-| 📄 **گزارش PDF** | گزارش هفتگی خودکار (WeasyPrint + Matplotlib) به‌صورت ایمیل · درخواست گزارش دستی از API |
-| 🤖 **دستیار هوش مصنوعی** | «پیشنهاد نام گروه» با Google Gemini — ۳ نام فارسی + ۳ نام انگلیسی بر اساس هزینه‌های گروه |
-| 📝 **فعالیت‌ها** | لاگ کامل رویدادهای گروه با زمان‌بندی |
-| ⏱️ **وظایف پس‌زمینه** | Celery Worker + Celery Beat برای گزارش‌ها و Outbox · پایش با Flower |
-| 🐳 **داکر کامل** | محیط توسعه و پروداکشن (PostgreSQL + Nginx + Flower) |
+> **پیش‌نیازها:** ابزار [Docker](https://www.docker.com/) و Docker Compose روی سیستم شما نصب و در حال اجرا باشند.
+
+### ۱. دریافت پروژه و آماده‌سازی فایل تنظیمات
+
+<div dir="ltr">
+
+```bash
+git clone https://github.com/MY-Jafari/HamPool.git hampool
+cd hampool
+cp .env.example .env
+```
+
+</div>
+
+*(در صورت تمایل می‌توانید کلید `GEMINI_API_KEY` را در فایل `.env` جهت فعال‌سازی بخش هوش مصنوعی وارد کنید).*
+
+### ۲. استارت کانتینرها
+
+<div dir="ltr">
+
+```bash
+# بیلد و بالا آوردن تمامی ۷ کانتینر به صورت یکپارچه
+docker compose up -d --build
+```
+
+</div>
+
+### ۳. اجرای مایگریشن‌ها و آماده‌سازی اولیه دیتابیس
+
+<div dir="ltr">
+
+```bash
+docker compose exec django python manage.py migrate
+```
+
+</div>
+
+### ۴. تزریق داده‌های واقعی تستی (سیستم آزمایشی)
+
+پروژه به یک دستور هوشمند جهت آماده‌سازی سناریوهای تستی فارسی مجهز است:
+
+<div dir="ltr">
+
+```bash
+docker compose exec django python manage.py seed_demo_data
+```
+
+</div>
+
+با اجرای این دستور، داده‌های تستی کامل شامل کاربر اصلی، دوستان، گروه‌های مختلف، هزینه‌های تاییدشده با مدل‌های تقسیم متنوع و تسویه‌های نمونه ساخته می‌شود.
 
 ---
 
-## 🛠️ استک فنی
+## 👤 کاربر و اطلاعات تستی آماده (Demo Account)
 
-### بک‌اند (`apps/`)
+جهت ورود آسان و بررسی کامل تمام قابلیت‌های نرم‌افزار، می‌توانید از اطلاعات حساب تستی زیر استفاده نمایید:
 
-| فناوری | کاربرد |
-|--------|--------|
-| Python 3.12 · Django 5.2 · DRF | چارچوب اصلی |
-| SimpleJWT + pyotp | احراز هویت و OTP |
-| Django Channels + Redis | WebSocket و Channel Layer |
-| Celery + Celery Beat | وظایف پس‌زمینه و زمان‌بندی |
-| Flower | داشبورد پایش Celery (tasks، queues، workers) |
-| Nginx | ریورس‌پروکسی + سرو فرانت‌اند SPA و فایل‌های static/media |
-| WeasyPrint + Matplotlib | تولید گزارش PDF و نمودار |
-| google-generativeai | پیشنهاد نام گروه با Gemini |
-| django-ratelimit | محدودیت نرخ |
-| pytest + pytest-django | تست (۲۱۱ تست) |
-
-### فرانت‌اند (`frontend/`)
-
-| فناوری | کاربرد |
-|--------|--------|
-| React 18 · Vite · TypeScript (strict) | چارچوب اصلی و باندلر سریع |
-| TailwindCSS + shadcn/ui (Radix) | رابط کاربری مدرن، تم روشن و تاریک، پشتیبانی کامل از RTL/LTR |
-| TanStack Query · Axios | مدیریت کش سرور و رهگیری توکن JWT با refresh خودکار تک‌پروازی |
-| react-i18next · i18next | دو زبانه (فارسی و انگلیسی) با جابجایی آنی در زمان اجرا |
-| vite-plugin-pwa | پشتیبانی کامل PWA، کش آفلاین استاتیک و نصب‌پذیری |
-| Zustand | مدیریت وضعیت محلی و اعلان‌های رویدادهای زنده |
-| React Hook Form + Zod | اعتبارسنجی فرم‌ها با خطاهای بومی‌سازی‌شده |
-| Recharts | نمودارهای تحلیلی، روند هزینه‌ها و سهم اعضا |
-| WebSocket manager | ارتباط بلادرنگ پایدار با پس‌روی نمایی و اتصال مجدد |
-| Vitest · MSW · Playwright | تست‌های واحد، شبیه‌سازی API و آزمون‌های E2E |
-| Vazirmatn · Inter · lucide-react | فونت‌های خودمیزبان فارسی و انگلیسی و آیکون‌های وکتور SVG |
+| فیلد | مقدار |
+| :--- | :--- |
+| **شماره موبایل** | `09121234567` |
+| **رمز عبور** | `Password123!` |
+| **نام کاربر** | یاسین جعفری |
+| **گروه‌های فعال آماده** | 🏖️ سفر شمال، ☕ کافه و رستوران، 🏢 بچه‌های آپارتمان، 🍱 ناهار هفتگی شرکت |
+| **داده‌های موجود** | هزینه‌های تفکیک‌شده، طلب و بدهی خالص، تاریخچه فعالیت‌ها و تسویه‌های منتظر تایید |
 
 ---
 
-## 🗂️ ساختار پروژه
+## 🌐 پورت‌ها و آدرس‌های دسترسی محلی
+
+پس از اجرای کانتینرها، تمامی سرویس‌ها از طریق آدرس‌های زیر در دسترس خواهند بود:
+
+| سرویس | آدرس محلی (URL) | مشخصات / راهنما |
+| :--- | :--- | :--- |
+| 💻 **فرانت‌اند وب و PWA** | [`http://localhost/`](http://localhost/) | رابط کاربری کامل برنامه (از طریق Nginx) |
+| 🔌 **API سرور بک‌اند** | [`http://localhost:8000/api/v1/`](http://localhost:8000/api/v1/) | مستقیم یا از طریق `http://localhost/api/v1/` |
+| 📖 **مستندات Swagger** | [`http://localhost:8000/swagger/`](http://localhost:8000/swagger/) | مستندات تعاملی اندپوینت‌های API |
+| 📑 **مستندات ReDoc** | [`http://localhost:8000/redoc/`](http://localhost:8000/redoc/) | مشخصات ساختاریافته OpenAPI |
+| 🌸 **داشبورد Celery Flower** | [`http://localhost:5555/`](http://localhost:5555/) | نام کاربری: `admin` · رمز عبور: `admin` |
+| 🩺 **بررسی سلامت (Health)** | [`http://localhost/health/`](http://localhost/health/) | وضعیت کلی Nginx و سرویس‌ها |
+| 🗄️ **دیتابیس PostgreSQL** | `localhost:5432` | نام کاربری: `hampool_user` · نام دیتابیس: `hampool` |
+
+---
+
+## 🧪 اجرای آزمون‌ها و اعتبارسنجی (Tests & CI)
+
+تمامی تست‌های بک‌اند و فرانت‌اند به گونه‌ای پیکربندی شده‌اند که هم در محیط داکر و محلی و هم در سرورهای ابری GitHub Actions به صورت ۱۰۰٪ موفق و سبز اجرا شوند:
+
+### ۱. اجرای تست‌های بک‌اند (Django + pytest)
+پوشش کامل ۲۱۱ تست شامل تمامی اپلیکیشن‌ها (احراز هویت، گروه‌ها، محاسبات مالی، وب‌سوکت، هوش مصنوعی، Outbox و گزارش‌ها):
+
+<div dir="ltr">
+
+```bash
+docker compose exec django pytest apps/ -v --tb=short
+```
+
+</div>
+
+### ۲. اجرای تست‌های فرانت‌اند (Vitest + MSW)
+اجرای ۵۷ تست واحد و تست‌های یکپارچه اعتبارسنجی فرم‌ها، فراخوانی API و عملکرد کامپوننت‌ها:
+
+<div dir="ltr">
+
+```bash
+cd frontend
+npm run test
+```
+
+</div>
+
+### ۳. بررسی تایپ‌اسکریپت، لینتر و بیلد نهایی
+اعتبارسنجی کامل کدهای فرانت‌اند بدون کوچک‌ترین ارور یا خطا:
+
+<div dir="ltr">
+
+```bash
+cd frontend
+npx tsc -b
+npm run lint
+npm run build
+```
+
+</div>
+
+---
+
+## 🔄 خط لوله پیوسته GitHub Actions CI/CD
+
+فایل گردش کار [`.github/workflows/ci.yml`](.github/workflows/ci.yml) در هر Push یا Pull Request روی شاخه `main` مراحل زیر را ارزیابی می‌کند:
+
+1. **جایگاه تست بک‌اند (`backend-test`):**
+   - راه‌اندازی رانر اوبونتو به همراه پایتون ۳.۱۲ و کانتینر سرویس Redis
+   - نصب پکیج‌های سیستم‌عامل مورد نیاز WeasyPrint (مانند Pango و Cairo)
+   - ساخت محیط ایزوله تست و اجرای `pytest apps/ -v --tb=short`
+2. **جایگاه بررسی فرانت‌اند (`frontend-test`):**
+   - راه‌اندازی Node.js نسخه ۲۰ به همراه سیستم کش npm
+   - اجرای تایپ‌چک کامل کدهای پروژه با `npx tsc -b`
+   - بررسی قوانین استایل و کیفیت با `npm run lint`
+   - اجرای تست‌های کامپوننت‌ها و استور با `npm run test`
+   - اعتبارسنجی بیلد بهینه‌شده تولیدی با `npm run build`
+3. **اعتبارسنجی داکر (`build`):**
+   - بیلد ایمیج نهایی کانتینر داکر جهت اطمینان از صحت استقرار در محیط‌های ابری
+
+---
+
+## 🗂️ ساختار فایل‌ها و شاخه‌ها
 
 <div dir="ltr">
 
 ```text
 hampool/
-├── apps/                        # Django apps
-│   ├── accounts/                #   کاربر، OTP، JWT
-│   ├── groups/                  #   گروه، عضو، هزینه، تسویه، بالانس، فعالیت
-│   │   ├── api/v1/              #     DRF views + serializers
-│   │   ├── services.py          #     لاجیک مالی (تقسیم، تسویه، بهینه‌سازی)
-│   │   ├── consumers.py         #     WebSocket consumer
-│   │   └── ws_handlers.py       #     انتشار رویدادها به Channel Layer
-│   ├── ai/                      #   پیشنهاد نام با Gemini
-│   ├── reports/                 #   گزارش هفتگی PDF (Celery task)
-│   └── outbox/                  #   Outbox pattern (رویدادهای تراکنشی)
-├── core/                        # تنظیمات، ASGI، Celery
-├── frontend/                    # فرانت‌اند React (RTL فارسی)
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # خط لوله تست پیوسته GitHub Actions
+├── apps/                        # ماژول‌های اصلی بک‌اند جنگو
+│   ├── accounts/                #   احراز هویت، کاربر سفارشی، OTP و توکن‌های JWT
+│   ├── groups/                  #   گروه، اعضا، هزینه‌ها، تسویه‌ها، بالانس و لاگ
+│   │   ├── api/v1/              #     کنترلرها، ویوها و سریالایزرهای DRF
+│   │   ├── services.py          #     الگوریتم‌های مالی و بهینه‌سازی تسویه
+│   │   ├── consumers.py         #     اتصال و مدیریت کانال‌های WebSocket
+│   │   └── management/commands/ #     دستور seed_demo_data جهت تزریق داده نمونه
+│   ├── ai/                      #   سرویس‌های هوش مصنوعی پیشنهاد نام گروه با Gemini
+│   ├── reports/                 #   تولید و ارسال گزارش‌های هفتگی PDF
+│   └── outbox/                  #   پیاده‌سازی الگوی Transactional Outbox
+├── core/                        # پیکربندی مرکزی پروژه، تنظیمات، ASGI و Celery
+├── frontend/                    # اپلیکیشن فرانت‌اند مدرن (React + TypeScript + PWA)
+│   ├── public/                  #   فاوآیکون‌ها، آیکون‌های استاندارد PWA و منیفست
 │   ├── src/
-│   │   ├── app/                 #   router، providers، layout
-│   │   ├── features/            #   auth، dashboard، groups، notifications
-│   │   └── shared/              #   UI primitives، hooks، lib، types
-│   ├── API_SUMMARY.md           #   تحلیل کامل بک‌اند
-│   └── WIREFRAMES.md            #   وایرفریم صفحات
-├── screenshots/                 # اسکرین‌شات‌های فرانت‌اند
-├── nginx/
-│   ├── default.conf             #   ریورس‌پروکسی + سرو SPA
-│   └── Dockerfile               #   بیلد فرانت‌اند + Nginx
-├── docker-compose.yml           # ۷ سرویس: db، redis، django، celery، flower، nginx
-├── docker-compose.prod.yml      # نسخه‌ی پروداکشن (Gunicorn + ایمج‌های بیلدشده)
-├── Dockerfile                   # ایمج پایتون (django/celery/flower)
-├── .flake8                      # کانفیگ lint (max-line-length=100)
-└── requirements.txt
+│   │   ├── app/                 #   مسیریابی، Layout اصلی، منوی کشویی و Providerها
+│   │   ├── features/            #   ماژول‌های auth، groups، dashboard و notifications
+│   │   └── shared/              #   کامپوننت‌های پایه UI، سرویس‌های API، هوک‌ها و انواع
+├── nginx/                       # تنظیمات سرور Nginx و ریورس‌پروکسی
+├── screenshots/                 # تصاویر مستندات و وکتور لوگوی رسمی پروژه
+├── docker-compose.yml           # کانتینرهای محیط توسعه
+├── docker-compose.prod.yml      # کانتینرهای محیط پروداکشن
+├── Dockerfile                   # ایمج اختصاصی پایتون بک‌اند
+├── pytest.ini                   # تنظیمات تست‌های pytest
+└── requirements.txt             # نیازمندی‌های پایتون
 ```
 
 </div>
 
 ---
 
-## 🚀 راه‌اندازی سریع
-
-> پیش‌نیاز: **Docker** و **Docker Compose** نصب باشند. (پورت ۸۰۰۰ آزاد)
-
-<div dir="ltr">
-
-```bash
-# ۱. کلون و ورود به پروژه
-git clone <your-repo-url> hampool
-cd hampool
-
-# ۲. ساخت فایل محیطی
-cp .env.example .env
-#   (در .env مقدار FLOWER_PASSWORD و POSTGRES_PASSWORD را عوض کنید)
-
-# ۳. اجرای کل محیط توسعه (db + Redis + Django + Celery + Nginx + Flower)
-docker compose up --build
-
-# ۴. در ترمینال دوم — اجرای مایگریشن‌ها
-docker compose exec django python manage.py migrate
-
-# ۵. (اختیاری) ساخت سوپریوزر
-docker compose exec django python manage.py createsuperuser
-```
-
-### اجرای نسخه‌ی پروداکشن
-
-<div dir="ltr">
-
-```bash
-# استک پروداکشن: Gunicorn + ایمج‌های بیلدشده + SPA از طریق Nginx
-# (پورت‌های db/redis در معرض هاست نیستند؛ Flower با basic-auth محافظت می‌شود)
-docker compose -f docker-compose.prod.yml up -d --build
-
-# مایگریشن و جمع‌آوری فایل‌های استاتیک
-docker compose -f docker-compose.prod.yml exec django python manage.py migrate
-docker compose -f docker-compose.prod.yml exec django python manage.py collectstatic --noinput
-```
-
-</div>
-
-</div>
-
-پس از بالا آمدن:
-
-| سرویس | آدرس |
-|-------|------|
-| 🌐 فرانت‌اند (SPA) | `http://localhost/` |
-| API بک‌اند | `http://localhost:8000` (مستقیم) · `http://localhost/api/` (از طریق Nginx) |
-| مستندات Swagger | `http://localhost:8000/swagger/` |
-| Redoc | `http://localhost:8000/redoc/` |
-| 🌸 Flower (پایش Celery) | `http://localhost:5555` (ورود: `FLOWER_USER`/`FLOWER_PASSWORD` از `.env`) |
-| وضعیت سرویس | `http://localhost/health/` |
-| PostgreSQL | `localhost:5432` |
-
-### اجرای فرانت‌اند (اختیاری)
-
-<div dir="ltr">
-
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
-```
-
-</div>
-
-> Vite به‌صورت خودکار `/api` و `/ws` را به بک‌اند (پورت ۸۰۰۰) پروکسی می‌کند؛ بدون نیاز به تنظیم CORS.
-
----
-
-## 🔧 متغیرهای محیطی
-
-فایل `.env.example` را به `.env` کپی کنید و مقادیر لازم را پر کنید:
-
-<div dir="ltr">
-
-| متغیر | پیش‌فرض | توضیح |
-|-------|---------|-------|
-| `DJANGO_SECRET_KEY` | — (الزامی) | کلید امنیتی Django — حتماً مقدار تصادفی بدهید |
-| `DJANGO_DEBUG` | `True` | در پروداکشن `False` |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | هاست‌های مجاز |
-| `DATABASE_ENGINE` | `django.db.backends.sqlite3` | SQLite برای توسعه / PostgreSQL برای پروداکشن |
-| `DATABASE_NAME` | `db.sqlite3` | نام دیتابیس SQLite |
-| `POSTGRES_DB/USER/PASSWORD/HOST/PORT` | — | برای پروداکشن (PostgreSQL) |
-| `REDIS_HOST` / `REDIS_PORT` | `redis` / `6379` | آدرس Redis |
-| `CELERY_BROKER_URL` | `redis://redis:6379/0` | بروکر Celery |
-| `CELERY_RESULT_BACKEND` | `redis://redis:6379/0` | بک‌اند نتیجه |
-| `EMAIL_BACKEND` | `console.EmailBackend` | در توسعه در کنسول چاپ می‌شود / SMTP برای پروداکشن |
-| `EMAIL_HOST` و هم‌خانواده‌ها | — | تنظیمات SMTP (پروداکشن) |
-| `GEMINI_API_KEY` | — | کلید Gemini برای پیشنهاد نام گروه (اختیاری) |
-| `GEMINI_AI_MODEL` | `gemini-2.5-flash` | مدل Gemini |
-
-</div>
-
-> ⚠️ در محیط توسعه، **کد OTP در کنسول بک‌اند چاپ می‌شود** (هیچ SMS ای ارسال نمی‌شود).
-
----
-
-## 📚 مستندات API
-
-مستندات تعاملی: **`http://localhost:8000/swagger/`** (drf-yasg)
-
-تحلیل کامل همه‌ی اندپوینت‌ها (ورودی/خروجی، خطاها، پروتکل WebSocket): [`frontend/API_SUMMARY.md`](frontend/API_SUMMARY.md)
-
-### نمونه‌ی درخواست‌ها (با curl)
-
-**ثبت‌نام (دریافت temp_token برای OTP):**
-
-<div dir="ltr">
-
-```bash
-curl -X POST http://localhost:8000/api/v1/accounts/register/ \
-  -H "Content-Type: application/json" \
-  -d '{"phone_number": "09123456789", "password": "Strong@Pass1", "password_confirm": "Strong@Pass1"}'
-```
-
-</div>
-
-**ورود:**
-
-<div dir="ltr">
-
-```bash
-curl -X POST http://localhost:8000/api/v1/accounts/login/ \
-  -H "Content-Type: application/json" \
-  -d '{"phone_number": "09123456789", "password": "Strong@Pass1"}'
-# → {"access": "...", "refresh": "..."}
-```
-
-</div>
-
-**ساخت گروه:**
-
-<div dir="ltr">
-
-```bash
-curl -X POST http://localhost:8000/api/v1/groups/ \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "گروه سفر", "budget_limit": 5000000}'
-```
-
-</div>
-
-**ثبت هزینه‌ی مساوی:**
-
-<div dir="ltr">
-
-```bash
-curl -X POST http://localhost:8000/api/v1/groups/1/expenses/ \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"description": "شام رستوران", "total_amount": 300000,
-       "split_type": "equal",
-       "splits": [{"user": 1}, {"user": 2}]}'
-```
-
-</div>
-
-**پیشنهاد تسویه بهینه:**
-
-<div dir="ltr">
-
-```bash
-curl http://localhost:8000/api/v1/groups/1/optimize-settlements/ \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-# → {"balance_version": "<sha256>", "suggestions": [{"from_user_id": 2, "to_user_id": 1, "amount": 150000}]}
-```
-
-</div>
-
-**اندپوینت‌های اصلی:**
-
-<div dir="ltr">
-
-| متد | مسیر | توضیح |
-|-----|------|-------|
-| POST | `/api/v1/accounts/register/` | ثبت‌نام + ارسال OTP |
-| POST | `/api/v1/accounts/verify-otp/` | تایید OTP → دریافت توکن |
-| POST | `/api/v1/accounts/login/` | ورود با شماره و رمز |
-| GET/PATCH | `/api/v1/accounts/profile/` | پروفایل |
-| GET/POST | `/api/v1/groups/` | لیست / ساخت گروه |
-| POST | `/api/v1/groups/join/` | عضویت با کد دعوت |
-| GET | `/api/v1/groups/{id}/balances/` | بالانس همه‌ی اعضا |
-| POST | `/api/v1/groups/{id}/expenses/` | ثبت هزینه (۴ نوع تقسیم) |
-| PATCH | `/api/v1/groups/{id}/expenses/{eid}/` | تایید هزینه (`is_confirmed: true`) |
-| POST | `/api/v1/groups/{id}/settlements/` | ثبت تسویه |
-| POST | `/api/v1/groups/{id}/settlements/{sid}/confirm/` | تایید تسویه (فقط گیرنده) |
-| POST | `/api/v1/groups/{id}/settlements/{sid}/reverse/` | ابطال تسویه |
-| GET | `/api/v1/groups/{id}/optimize-settlements/` | پیشنهاد تسویه بهینه |
-| POST | `/api/v1/groups/{id}/settlements/apply-optimization/` | اعمال پیشنهاد |
-| POST | `/api/v1/groups/{id}/report/` | درخواست گزارش PDF (ایمیلی) |
-| GET | `/api/v1/groups/{id}/qr-code/` | QR کد دعوت (PNG) |
-| POST | `/api/v1/groups/{id}/suggest-name/` | پیشنهاد نام گروه با AI |
-
-</div>
-
-### WebSocket (اعلان زنده)
-
-<div dir="ltr">
-
-```text
-ws://localhost:8000/ws/groups/<group_id>/?token=<ACCESS_TOKEN>
-```
-
-</div>
-
-پیام‌های دریافتی (فقط **سرور → کلاینت**، یک‌طرفه):
-
-<div dir="ltr">
-
-```json
-{
-  "type": "group_state_changed",
-  "group_id": 1,
-  "event_type": "expense_confirmed",
-  "params": {"description": "شام", "amount": 300000},
-  "ts": "2026-08-21T12:00:00+00:00"
-}
-```
-
-</div>
-
-نوع رویدادها: `group_created` · `member_joined` · `member_left` · `expense_created` · `expense_confirmed` · `expense_deleted` · `settlement_created` · `settlement_confirmed` · `settlement_reversed`
-
-> این کانال **چت نیست** — فقط اعلانِ تغییر وضعیت گروه است.
-
----
-
-## 🗄️ دیاگرام دیتابیس (مختصر)
-
-<div dir="ltr">
-
-```text
-User ──┬── 1:N ── Group (created_by / owner)
-       └── 1:N ── Membership (user, group, role)
-                  └── 1:N ── Expense (paid_by, split_type, is_confirmed)
-                               ├── 1:N ── ExpenseSplit (user, amount, settled)
-                               └── 1:N ── ExpenseItem ── 1:N ── ExpenseItemShare
-                  └── 1:N ── Settlement (from_user, to_user, amount, status, reversed_by)
-                  └── 1:N ── Balance (user, group, amount)   ← materialized، net طلب/بدهی
-                  └── 1:N ── ActivityLog (action, description, timestamp)
-User ── 1:1 ── OTP (secret, expires_at)
-OutboxEvent (event_type, payload JSON, status: pending→processing→dispatched/failed)
-```
-
-</div>
-
----
-
-## 🧪 تست‌ها
-
-پروژه از **pytest** + **pytest-django** استفاده می‌کند — **۲۱۱ تست، همه‌ی اپ‌ها**:
-
-<div dir="ltr">
-
-```bash
-# همه‌ی تست‌ها (داخل کانتینر)
-docker compose exec django python -m pytest
-
-# فقط یک اپ
-docker compose exec django python -m pytest apps/groups
-
-# با جزئیات
-docker compose exec django python -m pytest -v
-```
-
-</div>
-
-پوشش تست‌ها:
-
-| اپ | پوشش |
-|----|------|
-| accounts | ثبت‌نام، OTP، ورود، refresh، خروج، پروفایل، مدل User/OTP |
-| groups | CRUD، اعضا/نقش‌ها، دعوت/QR، هزینه (۴ تقسیم)، تسویه/بهینه‌سازی، بالانس، فعالیت‌ها، مدل‌ها، WebSocket handlers |
-| ai | پیشنهاد نام + GeminiProvider (با mock) |
-| outbox | مدل، رجیستری handler، سرویس، task ها |
-| reports | تولید PDF (با mock)، زمان‌بندی هفتگی |
-
-### لینت بک‌اند
-
-<div dir="ltr">
-
-```bash
-docker compose exec django python -m flake8
-```
-
-</div>
-
-### فرانت‌اند — تایپ‌چک، لینت، بیلد
-
-<div dir="ltr">
-
-```bash
-cd frontend
-npx tsc -b && npm run lint && npm run build
-```
-
-</div>
-
----
-
-## 🤝 مشارکت (Contributing)
-
-1. از شاخه‌ی `main` یک شاخه‌ی جدید بزنید: `git checkout -b feature/your-feature`
-2. تغییرات را پیاده کنید و مطمئن شوید تست‌ها سبزند:
-   <div dir="ltr">
-
-   ```bash
-   docker compose exec django python -m pytest
-   cd frontend && npm run lint && npm run build
-   ```
-
-   </div>
-3. کامیت با پیام واضح (ترجیحاً انگلیسی، فرمت Conventional Commits)
-4. Pull Request بسازید و تغییر را توضیح دهید
-
----
-
-## 🗺️ نقشه‌راه (Roadmap)
-
-ویژگی‌هایی که **هنوز پیاده نشده‌اند** (در کد وجود ندارند):
-
-- [ ] **چت گروهی** — فعلاً WebSocket فقط اعلان یک‌طرفه است
-- [ ] **2FA با QR / کد بازیابی** — فعلاً OTP فقط در ثبت‌نام است (کد در کنسول چاپ می‌شود)
-- [ ] **فراموشی رمز عبور** — اندپوینت بازیابی رمز وجود ندارد
-- [ ] **آپلود رسید** (تصویر فاکتور برای هزینه‌ها)
-- [ ] **اعلان‌های ذخیره‌شده سمت سرور** — فعلاً اعلان‌ها فقط در نشست مرورگر می‌مانند
-- [ ] **پرداخت آنلاین** — اتصال به درگاه پرداخت
-- [x] **تست‌های فرانت‌اند** (Vitest / Playwright)
-
----
-
-## ❓ عیب‌یابی (Troubleshooting)
-
-| مشکل | راه‌حل |
-|------|--------|
-| **پورت ۸۰۰۰ اشغال است** | `docker compose stop` و سرویس دیگری را که روی ۸۰۰۰ است متوقف کنید |
-| **خطای اتصال به دیتابیس (`could not translate host name "db"`)** | سرویس `db` را با `docker compose up -d db` بالا بیاورید — PostgreSQL بخشی از استک است |
-| **خطای مایگریشن / جدول پیدا نشد** | `docker compose exec django python manage.py migrate` |
-| **پیام‌های WebSocket نمی‌رسند** | مطمئن شوید Redis و Celery بالا هستند (`docker compose ps`) — Outbox توسط Celery dispatch می‌شود |
-| **ثبت گروه/هزینه با خطای ۵۰۰** | بدون Celery/Redis کار نمی‌کند (Outbox) — ابتدا آن‌ها را اجرا کنید |
-| **داشبورد Flower نمی‌آید** | `docker compose logs flower` — ورود با `FLOWER_USER`/`FLOWER_PASSWORD` (پیش‌فرض: admin/admin) |
-| **صفحه فرانت‌اند باز نمی‌شود** | Nginx باید روی پورت ۸۰ باشد: `docker compose up -d nginx` |
-| **کد OTP کجاست؟** | در کنسول بک‌اند چاپ می‌شود (`docker compose logs django`) |
-| **AI نام پیشنهاد نمی‌دهد** | `GEMINI_API_KEY` را در `.env` تنظیم کنید |
-| **فرانت‌اند به API وصل نمی‌شود** | بک‌اند روی ۸۰۰۰ بالا باشد؛ `VITE_PROXY_TARGET` را بررسی کنید |
-| **خطای `version is obsolete` در compose** | بی‌خطر است — فقط یک اخطار است |
+## 🤝 مشارکت و توسعه (Contributing)
+
+از هرگونه مشارکت، گزارش باگ یا پیشنهاد ویژگی جدید استقبال می‌شود:
+
+1. ابتدا مخزن را Fork کنید.
+2. یک شاخه برای قابلیت جدید بسازید:
+   `git checkout -b feature/amazing-feature`
+3. تغییرات خود را اعمال کنید و مطمئن شوید تست‌های بک‌اند و فرانت‌اند پاس می‌شوند:
+   `docker compose exec django pytest apps/`
+   `cd frontend && npm run test && npm run build`
+4. تغییرات را Commit کنید:
+   `git commit -m "feat: add amazing new feature"`
+5. تغییرات را به شاخه خود Push کرده و یک Pull Request ارسال نمایید.
 
 ---
 
@@ -547,8 +372,8 @@ npx tsc -b && npm run lint && npm run build
 
 ---
 
-## 📄 لایسنس
+## 📄 مجوز (License)
 
-این پروژه تحت لایسنس **MIT** منتشر شده است — فایل [LICENSE](LICENSE) را ببینید.
+این پروژه تحت مجوز **MIT** منتشر شده است. برای اطلاعات بیشتر فایل [LICENSE](LICENSE) را مطالعه فرمایید.
 
 </div>

@@ -49,6 +49,9 @@ jobs:
           echo "DJANGO_SECRET_KEY=ci-test-secret" >> .env
           echo "DJANGO_DEBUG=True" >> .env
           echo "CELERY_TASK_ALWAYS_EAGER=True" >> .env
+          echo "REDIS_HOST=127.0.0.1" >> .env
+          echo "CELERY_BROKER_URL=redis://127.0.0.1:6379/0" >> .env
+          echo "CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0" >> .env
 
       - name: Run tests
         run: |

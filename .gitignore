@@ -88,3 +88,8 @@ Thumbs.db
 # 11. Freebuff agent worktrees (never commit these)
 # -----------------------------------------------------------------------------
 .freebuff/
+
+# 12. Debug & Temporary Screenshots
+# -----------------------------------------------------------------------------
+screenshots/debug*.png
+screenshots/verified*.png
