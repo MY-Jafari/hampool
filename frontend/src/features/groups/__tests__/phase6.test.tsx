@@ -121,8 +121,7 @@ const server = setupServer(
   }),
 
   http.get(`${API_BASE}groups/30/qr-code/`, () => {
-    const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-    return new HttpResponse(pngBytes, {
+    return HttpResponse.text('mock-png-binary', {
       status: 200,
       headers: { 'Content-Type': 'image/png' },
     });
