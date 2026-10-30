@@ -4,13 +4,12 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  PanelLeftClose,
   PlusCircle,
   User,
   Users,
   X,
 } from 'lucide-react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { logout } from '@/features/auth/api';
@@ -39,6 +38,59 @@ import {
 } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 
+interface NavItemProps {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  collapsed: boolean;
+  isRtl: boolean;
+}
+
+function SidebarNavItem({ to, label, icon: Icon, collapsed, isRtl }: NavItemProps) {
+  const location = useLocation();
+  const isActive =
+    location.pathname === to || (to !== '/dashboard' && location.pathname.startsWith(to));
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={50}>
+        <TooltipTrigger asChild>
+          <Link
+            to={to}
+            className={cn(
+              'flex size-11 items-center justify-center rounded-xl transition-all outline-none',
+              isActive
+                ? 'bg-primary/15 text-primary font-bold shadow-sm ring-1 ring-primary/25'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            aria-label={label}
+          >
+            <Icon className="size-5 shrink-0" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side={isRtl ? 'left' : 'right'} className="font-semibold text-xs">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium transition-all outline-none',
+        isActive
+          ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/5'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+      )}
+    >
+      <Icon className="size-5 shrink-0" />
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+}
+
 export function Sidebar() {
   const { t, i18n } = useTranslation('common');
   const { user } = useAuthStore();
@@ -55,12 +107,12 @@ export function Sidebar() {
     <aside
       className={cn(
         'sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-border bg-card/70 backdrop-blur-md transition-all duration-300 ease-in-out lg:flex z-40',
-        collapsed ? 'w-20 px-3 py-6' : 'w-64 px-4 py-6',
+        collapsed ? 'w-20 px-3 py-6 items-center' : 'w-64 px-4 py-6',
       )}
     >
       {/* Top Header: Logo & Single Dedicated Toggle Button */}
       {collapsed ? (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center w-full">
           <Link
             to="/dashboard"
             className="mb-4 flex items-center justify-center transition-transform hover:scale-105"
@@ -68,7 +120,7 @@ export function Sidebar() {
           >
             <Logo variant="mark" size={40} />
           </Link>
-          <Tooltip>
+          <Tooltip delayDuration={50}>
             <TooltipTrigger asChild>
               <button
                 type="button"
@@ -79,7 +131,7 @@ export function Sidebar() {
                 {isRtl ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side={isRtl ? 'left' : 'right'}>
+            <TooltipContent side={isRtl ? 'left' : 'right'} className="font-semibold text-xs">
               {t('nav.expand', 'باز کردن منو')}
             </TooltipContent>
           </Tooltip>
@@ -95,7 +147,7 @@ export function Sidebar() {
           >
             <Logo variant="full" size={36} />
           </Link>
-          <Tooltip>
+          <Tooltip delayDuration={50}>
             <TooltipTrigger asChild>
               <button
                 type="button"
@@ -103,10 +155,10 @@ export function Sidebar() {
                 className="flex size-8 items-center justify-center rounded-lg border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={t('nav.collapse', 'بستن منو')}
               >
-                <PanelLeftClose className="size-4" />
+                {isRtl ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side={isRtl ? 'left' : 'right'}>
+            <TooltipContent side={isRtl ? 'left' : 'right'} className="font-semibold text-xs">
               {t('nav.collapse', 'بستن منو')}
             </TooltipContent>
           </Tooltip>
@@ -116,64 +168,31 @@ export function Sidebar() {
       {/* Navigation Items with Generous Spacing */}
       <nav
         className={cn(
-          'flex flex-1 flex-col',
-          collapsed ? 'gap-4 items-center' : 'gap-2',
+          'flex flex-1 flex-col w-full',
+          collapsed ? 'gap-3 items-center' : 'gap-2',
         )}
       >
-        {navItems.map(({ to, label, icon: Icon }) => {
-          if (collapsed) {
-            return (
-              <Tooltip key={to}>
-                <TooltipTrigger asChild>
-                  <NavLink
-                    to={to}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex size-12 items-center justify-center rounded-2xl transition-all',
-                        isActive
-                          ? 'bg-primary/15 text-primary font-bold shadow-sm ring-1 ring-primary/25'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                      )
-                    }
-                  >
-                    <Icon className="size-[22px] shrink-0" />
-                  </NavLink>
-                </TooltipTrigger>
-                <TooltipContent side={isRtl ? 'left' : 'right'} className="font-medium">
-                  {label}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-medium transition-all',
-                  isActive
-                    ? 'bg-primary/10 text-primary font-bold shadow-sm shadow-primary/5'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                )
-              }
-            >
-              <Icon className="size-5 shrink-0" />
-              <span className="truncate">{label}</span>
-            </NavLink>
-          );
-        })}
+        {navItems.map((item) => (
+          <SidebarNavItem
+            key={item.to}
+            to={item.to}
+            label={item.label}
+            icon={item.icon}
+            collapsed={collapsed}
+            isRtl={isRtl}
+          />
+        ))}
       </nav>
 
       {/* Footer User Info */}
-      <div className="mt-auto border-t border-border/70 pt-4">
+      <div className={cn('border-t border-border/70 pt-4', collapsed ? 'w-full flex justify-center' : '')}>
         {collapsed ? (
-          <Tooltip>
+          <Tooltip delayDuration={50}>
             <TooltipTrigger asChild>
               <Link
                 to="/profile"
-                className="flex size-12 mx-auto items-center justify-center rounded-2xl hover:bg-accent transition-colors"
+                className="flex size-11 items-center justify-center rounded-xl hover:bg-accent transition-colors"
+                aria-label={user?.full_name || user?.phone_number || 'Profile'}
               >
                 <UserAvatar
                   name={user?.full_name}
@@ -183,9 +202,11 @@ export function Sidebar() {
                 />
               </Link>
             </TooltipTrigger>
-            <TooltipContent side={isRtl ? 'left' : 'right'}>
+            <TooltipContent side={isRtl ? 'left' : 'right'} className="font-semibold text-xs">
               <p className="font-semibold">{user?.full_name || user?.phone_number}</p>
-              <p className="text-[10px] text-muted-foreground" dir="ltr">{user?.phone_number}</p>
+              <p className="text-[10px] text-muted-foreground" dir="ltr">
+                {user?.phone_number}
+              </p>
             </TooltipContent>
           </Tooltip>
         ) : (
